@@ -104,6 +104,32 @@
     margin-bottom:8px;font-weight:600;
   }
   .counter-strip b{color:var(--ink)}
+  /* ---------- Mengen-Stepper ---------- */
+  .qty{
+    flex:0 0 58px;display:flex;flex-direction:column;border:1px solid var(--line);
+    border-radius:var(--radius);overflow:hidden;background:var(--card);
+  }
+  .qty .cap{font-size:9px;font-weight:800;letter-spacing:.06em;color:var(--muted);text-align:center;padding:4px 0 0;text-transform:uppercase}
+  .qty input{
+    flex:1;border:0;width:100%;text-align:center;font-size:18px;font-weight:800;
+    font-family:inherit;background:transparent;color:var(--ink);min-width:0;-moz-appearance:textfield;
+  }
+  .qty input::-webkit-outer-spin-button,.qty input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .qty .qbtns{display:flex;height:27px;border-top:1px solid var(--line)}
+  .qty .qbtns button{flex:1;border:0;background:var(--paper);font-weight:800;font-size:16px;color:var(--ink);cursor:pointer;font-family:inherit;line-height:1}
+  .qty .qbtns button:active{background:var(--line)}
+  .qty .qbtns button+button{border-left:1px solid var(--line)}
+  /* ---------- Abgegeben-Screen ---------- */
+  #view-give{position:absolute;inset:0;overflow-y:auto;padding:14px;display:none}
+  .form-grid{display:grid;grid-template-columns:1fr 80px;gap:10px;margin-bottom:10px}
+  .field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:4px}
+  .field input{
+    width:100%;padding:11px 10px;border:2px solid var(--line);border-radius:10px;
+    font-family:inherit;font-size:15px;font-weight:600;background:var(--paper);color:var(--ink);
+  }
+  .field input:focus{outline:none;border-color:var(--ink)}
+  .give-save{width:100%;border:0;border-radius:12px;padding:14px 0;font-size:15.5px;font-weight:800;font-family:inherit;color:#fff;background:var(--ink);cursor:pointer}
+  .give-del{background:none;border:0;color:#C0392B;font-size:16px;font-weight:800;cursor:pointer;padding:2px 8px}
   /* ---------- Toast ---------- */
   #toast{
     position:fixed;left:50%;bottom:170px;transform:translateX(-50%) translateY(8px);
@@ -183,6 +209,7 @@
   </div>
   <div class="tabs">
     <button id="tabMap" class="active">Karte</button>
+    <button id="tabGive">Abgegeben</button>
     <button id="tabStats">Statistik</button>
   </div>
 </header>
@@ -198,9 +225,14 @@
     <div class="actionbar">
       <div class="counter-strip">
         <span>Heute eingeworfen: <b id="cntToday">0</b></span>
-        <span>Offene Tour: <b id="cntSession">0</b> Pins</span>
+        <span>Offene Tour: <b id="cntSession">0</b> Flyer</span>
       </div>
       <div class="btn-row">
+        <div class="qty">
+          <span class="cap">Flyer</span>
+          <input id="qVal" type="number" value="1" min="1" max="999" inputmode="numeric">
+          <div class="qbtns"><button id="qMinus" type="button">&minus;</button><button id="qPlus" type="button">+</button></div>
+        </div>
         <button class="bigbtn" id="btnFlyer" disabled>📬 Eingeworfen<small id="flyerSub">warte auf GPS …</small></button>
         <button class="bigbtn" id="btnSkip" disabled>🚫 Übersprungen<small>kein Flyer</small></button>
       </div>
@@ -210,6 +242,22 @@
         <button class="smallbtn" id="btnTour">🏁 Tour abschließen</button>
       </div>
     </div>
+  </div>
+
+  <!-- ===== Abgegeben (persönlich übergebene Flyer) ===== -->
+  <div id="view-give">
+    <div class="chart-card">
+      <div class="section-title" style="margin:2px 0 10px">Flyer persönlich abgegeben</div>
+      <div class="form-grid">
+        <div class="field"><label for="giveName">An wen</label><input id="giveName" type="text" placeholder="z. B. Bäckerei Müller" autocomplete="off"></div>
+        <div class="field"><label for="giveN">Anzahl</label><input id="giveN" type="number" value="1" min="1" max="9999" inputmode="numeric"></div>
+      </div>
+      <div class="field" style="margin-bottom:12px"><label for="giveDate">Datum</label><input id="giveDate" type="date"></div>
+      <button class="give-save" id="giveSave">＋ Eintrag speichern</button>
+    </div>
+    <div class="section-title">Einträge <span id="giveTotal" style="text-transform:none;letter-spacing:0"></span></div>
+    <div class="chart-card" id="giveList"></div>
+    <div style="height:30px"></div>
   </div>
 
   <!-- ===== Statistik ===== -->
@@ -234,7 +282,7 @@
 <div class="overlay hidden" id="tourOverlay">
   <div class="modal">
     <h2>Tour abschließen</h2>
-    <p>Wie viele Flyer hast du auf dieser Tour verteilt? Vorausgefüllt ist die Anzahl deiner „Eingeworfen“-Pins – du kannst die Zahl anpassen (z.&nbsp;B. wenn ein Pin für 2 Flyer stand).</p>
+    <p>Wie viele Flyer hast du auf dieser Tour verteilt? Vorausgefüllt ist die Flyer-Summe deiner „Eingeworfen“-Pins – du kannst die Zahl noch anpassen.</p>
     <input type="number" id="tourFlyers" min="0" step="1" inputmode="numeric">
     <div class="hint" id="tourHint"></div>
     <div class="modal-btns">
@@ -333,6 +381,10 @@ async function dbSet(key, val){
   });
   if(!r.ok) throw new Error("HTTP " + r.status);
 }
+async function dbDelete(key){
+  const r = await fetch(dbUrl + "/" + key + ".json", {method:"DELETE"});
+  if(!r.ok) throw new Error("HTTP " + r.status);
+}
 async function loadKey(key, fallback){
   try{
     const v = await dbGet(key);
@@ -343,7 +395,8 @@ async function loadAll(){
   setSync("busy","Lädt …");
   const [pr,ps,tr,ts] = await Promise.all([
     loadKey("pins-rico",[]), loadKey("pins-susi",[]),
-    loadKey("tours-rico",[]), loadKey("tours-susi",[])
+    loadKey("tours-rico",[]), loadKey("tours-susi",[]),
+    loadHandouts()
   ]);
   data.pins.rico=pr; data.pins.susi=ps; data.tours.rico=tr; data.tours.susi=ts;
   setSync("ok","Synchronisiert");
@@ -355,8 +408,9 @@ async function refreshOthers(showToast){
   setSync("busy","Aktualisiere …");
   data.pins[o]  = await loadKey("pins-"+o,  data.pins[o]);
   data.tours[o] = await loadKey("tours-"+o, data.tours[o]);
-  setSync(dirty.pins||dirty.tours ? "off" : "ok",
-          dirty.pins||dirty.tours ? "Offline – sende später" : "Synchronisiert");
+  await loadHandouts();
+  const pending = dirty.pins || dirty.tours || pendingH.length > 0;
+  setSync(pending ? "off" : "ok", pending ? "Offline – sende später" : "Synchronisiert");
   renderAll();
   if(showToast) toast("Aktualisiert ✓");
 }
@@ -384,13 +438,91 @@ function markDirtyAndPersist(kind){ dirty[kind]=true; persist(kind); }
 setInterval(()=>{
   if(dirty.pins) persist("pins");
   if(dirty.tours) persist("tours");
+  if(pendingH.length) flushH();
   refreshOthers(false);
 }, SYNC_EVERY_MS);
 document.addEventListener("visibilitychange", ()=>{
   if(document.visibilityState==="visible") refreshOthers(false);
 });
 
+/* ================= Abgegeben (Name + Anzahl + Datum, ohne Koordinaten) ================= */
+let handouts = {};       // id -> {name, n, day, ts}
+let pendingH = [];       // noch nicht gesendete Operationen
+function applyPendingH(){
+  for(const op of pendingH){
+    if(op.op === "set") handouts[op.id] = op.rec;
+    else delete handouts[op.id];
+  }
+}
+async function loadHandouts(){
+  try{
+    const v = await dbGet("handouts");
+    handouts = (v && typeof v === "object" && !Array.isArray(v)) ? v : {};
+  }catch(e){ /* lokalen Stand behalten */ }
+  applyPendingH();
+}
+let flushingH = false;
+async function flushH(){
+  if(flushingH) return;
+  flushingH = true;
+  while(pendingH.length){
+    const op = pendingH[0];
+    try{
+      if(op.op === "set") await dbSet("handouts/" + op.id, op.rec);
+      else await dbDelete("handouts/" + op.id);
+      pendingH.shift();
+      if(!dirty.pins && !dirty.tours && pendingH.length === 0) setSync("ok","Synchronisiert");
+    }catch(e){
+      setSync("off","Offline – sende später");
+      break;
+    }
+  }
+  flushingH = false;
+}
+function addHandout(){
+  const name = $("giveName").value.trim();
+  const n = Math.min(9999, Math.max(1, parseInt($("giveN").value,10) || 1));
+  const day = $("giveDate").value || dayKey(Date.now());
+  if(!name){ toast("Bitte eingeben, an wen"); $("giveName").focus(); return; }
+  const id = uid();
+  const rec = { name:name, n:n, day:day, ts:Date.now() };
+  handouts[id] = rec;
+  pendingH.push({op:"set", id:id, rec:rec});
+  flushH();
+  $("giveName").value = ""; $("giveN").value = 1;
+  renderGive();
+  toast("Gespeichert: " + n + " Flyer an " + name + " ✓");
+}
+window.__delHand = function(id){
+  if(!handouts[id]) return;
+  delete handouts[id];
+  pendingH.push({op:"del", id:id});
+  flushH();
+  renderGive();
+  toast("Eintrag gelöscht");
+};
+function fmtDayFull(key){ const p=key.split("-"); return p[2]+"."+p[1]+"."+p[0]; }
+function renderGive(){
+  if(!$("giveDate").value) $("giveDate").value = dayKey(Date.now());
+  const list = Object.entries(handouts)
+    .map(([id,h])=>({id:id, name:h.name, n:h.n, day:h.day, ts:h.ts}))
+    .sort((a,b)=> a.day===b.day ? b.ts-a.ts : (a.day<b.day?1:-1));
+  const total = list.reduce((s,h)=>s+(h.n||0),0);
+  $("giveTotal").textContent = list.length ? "· " + total + " Flyer gesamt" : "";
+  $("giveList").innerHTML = list.length === 0
+    ? '<div class="empty">Noch keine Einträge. Trage oben ein, wem du Flyer gegeben hast – z. B. einem Laden oder Bekannten.</div>'
+    : '<table><tr><th>An wen</th><th>Datum</th><th>Flyer</th><th></th></tr>' +
+      list.map(h=>'<tr><td style="font-weight:600">'+esc(h.name)+'</td><td>'+fmtDayFull(h.day)+'</td><td style="text-align:right;font-weight:700">'+h.n+'</td><td style="text-align:right"><button class="give-del" onclick="window.__delHand(\''+h.id+'\')">✕</button></td></tr>').join("") +
+      "</table>";
+}
+
 /* ================= Karte ================= */
+function renderAll(){
+  renderPins();
+  updateCounters();
+  renderGive();
+  if($("view-stats").style.display !== "none") renderStats();
+}
 function initMap(){
   map = L.map("map", { zoomControl:false, attributionControl:true });
   map.setView([51.16, 10.45], 6); // Deutschland, bis GPS-Fix kommt
@@ -419,7 +551,7 @@ function renderPins(){
       const own = p === me;
       m.bindPopup(
         '<b style="color:'+col+'">'+PEOPLE[p].name+'</b> · '+
-        (skipped ? "Übersprungen" : "Eingeworfen") + (pin.a ? " (auto)" : "") +
+        (skipped ? "Übersprungen" : "Eingeworfen: "+(pin.n||1)+((pin.n||1)===1?" Flyer":" Flyer")) + (pin.a ? " (auto)" : "") +
         "<br>" + fmtTime(pin.ts) +
         (own ? '<br><button class="pop-del" onclick="window.__delPin(\''+pin.id+'\')">Pin löschen</button>' : "")
       );
@@ -480,18 +612,25 @@ function showGpsBanner(msg){ const b=$("gpsBanner"); b.textContent=msg; b.style.
 function hideGpsBanner(){ $("gpsBanner").style.display="none"; }
 
 /* ================= Pins setzen ================= */
+function getQty(){
+  return Math.min(999, Math.max(1, parseInt($("qVal").value,10) || 1));
+}
 function addPin(type, isAuto){
   if(!me || !myPos) return;
   const now = Date.now();
   if(!isAuto && now < cooldownUntil) return;
-  const pin = { id:uid(), lat:+myPos.lat.toFixed(6), lng:+myPos.lng.toFixed(6), t:type, a:!!isAuto, ts:now };
+  const n = (type === "f" && !isAuto) ? getQty() : 1;
+  const pin = { id:uid(), lat:+myPos.lat.toFixed(6), lng:+myPos.lng.toFixed(6), t:type, a:!!isAuto, n:n, ts:now };
   data.pins[me].push(pin);
   session.push(pin.id);
   lastPinPos = { lat:pin.lat, lng:pin.lng };
+  if(type === "f" && !isAuto) $("qVal").value = 1;   // nach dem Speichern zurück auf 1
   renderPins(); updateCounters();
   markDirtyAndPersist("pins");
   vibrate(isAuto ? 40 : 90);
-  toast(type==="f" ? (isAuto ? "Auto-Pin gesetzt ✓" : "Eingeworfen gespeichert ✓") : "Übersprungen gespeichert ✓");
+  toast(type==="f"
+    ? (isAuto ? "Auto-Pin gesetzt ✓" : (n>1 ? n+" Flyer gespeichert ✓" : "Eingeworfen gespeichert ✓"))
+    : "Übersprungen gespeichert ✓");
   if(!isAuto) startCooldown();
 }
 function startCooldown(){
@@ -526,29 +665,35 @@ function undo(){
 }
 
 /* ================= Zähler ================= */
+function pinFly(p){ return p.t==="f" ? (p.n||1) : 0; }
 function sessionFlyerCount(){
+  const ids = new Set(session);
+  return data.pins[me] ? data.pins[me].reduce((s,p)=>s + (ids.has(p.id) ? pinFly(p) : 0), 0) : 0;
+}
+function sessionPinCount(){
   const ids = new Set(session);
   return data.pins[me] ? data.pins[me].filter(p=>ids.has(p.id) && p.t==="f").length : 0;
 }
 function updateCounters(){
   if(!me) return;
   const today = dayKey(Date.now());
-  const todayPins = data.pins[me].filter(p=>p.t==="f" && dayKey(p.ts)===today).length;
-  $("cntToday").textContent = todayPins;
+  const todayFly = data.pins[me].reduce((s,p)=>s + (dayKey(p.ts)===today ? pinFly(p) : 0), 0);
+  $("cntToday").textContent = todayFly;
   $("cntSession").textContent = sessionFlyerCount();
   updateButtons();
 }
 
 /* ================= Tour abschließen ================= */
 function openTour(){
-  const n = sessionFlyerCount();
-  $("tourFlyers").value = n;
-  $("tourHint").textContent = n === 1 ? "1 „Eingeworfen“-Pin in dieser Tour" : n + " „Eingeworfen“-Pins in dieser Tour";
+  const fly = sessionFlyerCount();
+  const pins = sessionPinCount();
+  $("tourFlyers").value = fly;
+  $("tourHint").textContent = fly + " Flyer aus " + pins + (pins===1?" Pin":" Pins") + " in dieser Tour";
   $("tourOverlay").classList.remove("hidden");
 }
 function saveTour(){
   const val = Math.max(0, parseInt($("tourFlyers").value,10) || 0);
-  const tour = { id:uid(), ts:Date.now(), pins:sessionFlyerCount(), flyers:val };
+  const tour = { id:uid(), ts:Date.now(), pins:sessionPinCount(), flyers:val };
   data.tours[me].push(tour);
   session = [];
   $("tourOverlay").classList.add("hidden");
@@ -569,10 +714,11 @@ function aggregate(){
       days[k][p].fly += t.flyers;
     }
     for(const pin of data.pins[p]){
-      if(pin.t==="f") tot[p].pins++; else tot[p].skip++;
+      if(pin.t==="f"){ tot[p].pins++; tot[p].pinFly = (tot[p].pinFly||0) + (pin.n||1); }
+      else tot[p].skip++;
       const k = dayKey(pin.ts);
       days[k] = days[k] || {rico:{fly:0,pins:0},susi:{fly:0,pins:0}};
-      if(pin.t==="f") days[k][p].pins++;
+      if(pin.t==="f") days[k][p].pins += (pin.n||1);
     }
   }
   const keys = Object.keys(days).sort();
@@ -635,14 +781,18 @@ function renderStats(){
   const allTours = [...data.tours.rico.map(t=>({...t,p:"rico"})), ...data.tours.susi.map(t=>({...t,p:"susi"}))]
                    .sort((a,b)=>b.ts-a.ts).slice(0,12);
   const openHint = me && sessionFlyerCount()>0
-    ? '<div class="empty">Hinweis: Deine offene Tour ('+sessionFlyerCount()+' Pins) zählt erst nach „Tour abschließen“ in die Flyer-Statistik.</div>' : "";
+    ? '<div class="empty">Hinweis: Deine offene Tour ('+sessionFlyerCount()+' Flyer) zählt erst nach „Tour abschließen“ in die Flyer-Statistik.</div>' : "";
+
+  const hList = Object.keys(handouts).map(k=>handouts[k]);
+  const hFly = hList.reduce((s,h)=>s+(h.n||0),0);
 
   v.innerHTML =
     '<div class="stat-cards">' +
       '<div class="card rico"><div class="label">Rico · Flyer gesamt</div><div class="big">'+tot.rico.fly+'</div><div class="sub">heute: '+todayR+' · Touren: '+tot.rico.tours+'</div></div>' +
       '<div class="card susi"><div class="label">Susi · Flyer gesamt</div><div class="big">'+tot.susi.fly+'</div><div class="sub">heute: '+todayS+' · Touren: '+tot.susi.tours+'</div></div>' +
-      '<div class="card"><div class="label">Pins „Eingeworfen“</div><div class="big">'+(tot.rico.pins+tot.susi.pins)+'</div><div class="sub">Rico '+tot.rico.pins+' · Susi '+tot.susi.pins+'</div></div>' +
+      '<div class="card"><div class="label">Pins „Eingeworfen“</div><div class="big">'+(tot.rico.pins+tot.susi.pins)+'</div><div class="sub">= '+((tot.rico.pinFly||0)+(tot.susi.pinFly||0))+' Flyer · Rico '+tot.rico.pins+' · Susi '+tot.susi.pins+'</div></div>' +
       '<div class="card"><div class="label">Übersprungen</div><div class="big">'+(tot.rico.skip+tot.susi.skip)+'</div><div class="sub">Rico '+tot.rico.skip+' · Susi '+tot.susi.skip+'</div></div>' +
+      '<div class="card" style="grid-column:1/-1"><div class="label">Persönlich abgegeben</div><div class="big">'+hFly+'</div><div class="sub">'+hList.length+(hList.length===1?' Eintrag':' Einträge')+' · zählt nicht in die Rico/Susi-Werte</div></div>' +
     '</div>' +
     openHint +
     '<div class="section-title">Flyer pro Tag</div>' +
@@ -662,6 +812,7 @@ function renderStats(){
     '<div class="export-row">' +
       '<button class="smallbtn" id="expPins">Pins (CSV)</button>' +
       '<button class="smallbtn" id="expTours">Touren (CSV)</button>' +
+      '<button class="smallbtn" id="expHand">Abgegeben (CSV)</button>' +
       '<button class="smallbtn" id="expGpx">Pins (GPX)</button>' +
     '</div>' +
     '<div class="section-title">Einrichtung</div>' +
@@ -679,6 +830,7 @@ function renderStats(){
   };
   $("expPins").onclick = exportPinsCSV;
   $("expTours").onclick = exportToursCSV;
+  $("expHand").onclick = exportHandoutsCSV;
   $("expGpx").onclick = exportGPX;
   $("switchWho").onclick = ()=>$("whoOverlay").classList.remove("hidden");
 }
@@ -693,10 +845,18 @@ function download(name, text, mime){
   setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 800);
 }
 function exportPinsCSV(){
-  let s = "person;typ;auto;lat;lng;zeitpunkt\n";
+  let s = "person;typ;auto;anzahl;lat;lng;zeitpunkt\n";
   for(const p of ["rico","susi"]) for(const pin of data.pins[p])
-    s += PEOPLE[p].name+";"+(pin.t==="f"?"eingeworfen":"uebersprungen")+";"+(pin.a?"ja":"nein")+";"+pin.lat+";"+pin.lng+";"+new Date(pin.ts).toISOString()+"\n";
+    s += PEOPLE[p].name+";"+(pin.t==="f"?"eingeworfen":"uebersprungen")+";"+(pin.a?"ja":"nein")+";"+(pin.t==="f"?(pin.n||1):0)+";"+pin.lat+";"+pin.lng+";"+new Date(pin.ts).toISOString()+"\n";
   download("flyer-pins.csv", s, "text/csv");
+}
+function exportHandoutsCSV(){
+  let s = "an_wen;datum;anzahl\n";
+  for(const k of Object.keys(handouts)){
+    const h = handouts[k];
+    s += '"'+String(h.name).replace(/"/g,'""')+'";'+h.day+";"+h.n+"\n";
+  }
+  download("flyer-abgegeben.csv", s, "text/csv");
 }
 function exportToursCSV(){
   let s = "person;zeitpunkt;pins;flyer\n";
@@ -729,13 +889,15 @@ async function setMe(who, save){
 
 /* ================= Tabs ================= */
 function showTab(which){
-  const isMap = which==="map";
-  $("view-map").style.display = isMap ? "flex" : "none";
-  $("view-stats").style.display = isMap ? "none" : "block";
-  $("tabMap").classList.toggle("active", isMap);
-  $("tabStats").classList.toggle("active", !isMap);
-  if(isMap) setTimeout(()=>map.invalidateSize(), 60);
-  else renderStats();
+  $("view-map").style.display   = which==="map"   ? "flex"  : "none";
+  $("view-give").style.display  = which==="give"  ? "block" : "none";
+  $("view-stats").style.display = which==="stats" ? "block" : "none";
+  $("tabMap").classList.toggle("active",   which==="map");
+  $("tabGive").classList.toggle("active",  which==="give");
+  $("tabStats").classList.toggle("active", which==="stats");
+  if(which==="map") setTimeout(()=>map.invalidateSize(), 60);
+  if(which==="give") renderGive();
+  if(which==="stats") renderStats();
 }
 
 /* ================= Events ================= */
@@ -759,7 +921,12 @@ $("btnAuto").onclick = ()=>{
 $("pickRico").onclick = ()=>setMe("rico", true);
 $("pickSusi").onclick = ()=>setMe("susi", true);
 $("tabMap").onclick = ()=>showTab("map");
+$("tabGive").onclick = ()=>showTab("give");
 $("tabStats").onclick = ()=>showTab("stats");
+$("qPlus").onclick  = ()=>{ $("qVal").value = getQty() + 1; };
+$("qMinus").onclick = ()=>{ $("qVal").value = Math.max(1, getQty() - 1); };
+$("qVal").onchange  = ()=>{ $("qVal").value = getQty(); };
+$("giveSave").onclick = addHandout;
 
 /* ================= Teilen ================= */
 function copyShareLink(){
