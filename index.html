@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Flyer-Tracker</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root{
+    --ink:#17211F;
+    --paper:#F3F5F4;
+    --card:#FFFFFF;
+    --line:#DDE3E1;
+    --muted:#6B7774;
+    --rico:#1F5FD0;
+    --rico-soft:#E3ECFB;
+    --susi:#D03282;
+    --susi-soft:#FAE4F0;
+    --skip:#98A3A0;
+    --ok:#1E8A5A;
+    --warn:#C8772A;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overscroll-behavior:none}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--paper);color:var(--ink);
+    display:flex;flex-direction:column;height:100dvh;
+  }
+  /* ---------- Header ---------- */
+  header{
+    background:var(--card);border-bottom:1px solid var(--line);
+    padding:10px 14px 8px;flex:0 0 auto;z-index:1200;
+  }
+  .head-row{display:flex;align-items:center;gap:10px}
+  .logo{font-weight:800;font-size:17px;letter-spacing:-0.2px}
+  .logo span{color:var(--muted);font-weight:600}
+  .me-badge{
+    margin-left:auto;display:flex;align-items:center;gap:6px;
+    font-weight:700;font-size:14px;padding:4px 10px;border-radius:999px;
+    background:var(--rico-soft);color:var(--rico);
+  }
+  .me-badge.susi{background:var(--susi-soft);color:var(--susi)}
+  .me-dot{width:9px;height:9px;border-radius:50%;background:currentColor}
+  .iconbtn{
+    width:36px;height:36px;border-radius:10px;border:1px solid var(--line);
+    background:var(--card);font-size:17px;line-height:1;cursor:pointer;color:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .iconbtn:active{background:var(--paper)}
+  .status-row{display:flex;align-items:center;gap:14px;margin-top:7px;font-size:12px;color:var(--muted)}
+  .sync{display:flex;align-items:center;gap:5px;font-weight:600}
+  .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  .sync.ok .sync-dot{background:var(--ok)} .sync.ok{color:var(--ok)}
+  .sync.busy .sync-dot{background:var(--warn);animation:blink 1s infinite} .sync.busy{color:var(--warn)}
+  .sync.off .sync-dot{background:#C0392B;animation:blink 1s infinite} .sync.off{color:#C0392B}
+  @keyframes blink{50%{opacity:.3}}
+  .gps-info{margin-left:auto}
+  /* ---------- Tabs ---------- */
+  .tabs{display:flex;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:3px;margin-top:8px}
+  .tabs button{
+    flex:1;border:0;background:transparent;padding:7px 0;border-radius:8px;
+    font-weight:700;font-size:13.5px;color:var(--muted);cursor:pointer;font-family:inherit;
+  }
+  .tabs button.active{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  /* ---------- Map view ---------- */
+  main{flex:1;position:relative;overflow:hidden}
+  #view-map{position:absolute;inset:0;display:flex;flex-direction:column}
+  #map{flex:1;z-index:1}
+  .map-fab{
+    position:absolute;right:12px;bottom:12px;z-index:900;
+    width:44px;height:44px;border-radius:12px;border:1px solid var(--line);
+    background:var(--card);font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);
+  }
+  /* ---------- Action bar ---------- */
+  .actionbar{
+    flex:0 0 auto;background:var(--card);border-top:1px solid var(--line);
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom));z-index:1000;
+  }
+  .btn-row{display:flex;gap:10px}
+  .bigbtn{
+    flex:1;border:0;border-radius:var(--radius);padding:16px 8px;
+    font-size:16.5px;font-weight:800;font-family:inherit;cursor:pointer;color:#fff;
+    display:flex;flex-direction:column;align-items:center;gap:2px;
+    transition:transform .08s, opacity .15s;
+  }
+  .bigbtn small{font-weight:600;font-size:11px;opacity:.85}
+  .bigbtn:active{transform:scale(.97)}
+  .bigbtn:disabled{opacity:.45;cursor:default}
+  #btnFlyer{background:var(--rico);flex:1.6}
+  body.is-susi #btnFlyer{background:var(--susi)}
+  #btnSkip{background:var(--skip)}
+  .small-row{display:flex;gap:8px;margin-top:8px}
+  .smallbtn{
+    flex:1;border:1px solid var(--line);background:var(--paper);border-radius:10px;
+    padding:9px 4px;font-size:12.5px;font-weight:700;font-family:inherit;color:var(--ink);cursor:pointer;
+  }
+  .smallbtn:disabled{opacity:.4}
+  .smallbtn.toggled{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .counter-strip{
+    display:flex;justify-content:center;gap:18px;font-size:12px;color:var(--muted);
+    margin-bottom:8px;font-weight:600;
+  }
+  .counter-strip b{color:var(--ink)}
+  /* ---------- Toast ---------- */
+  #toast{
+    position:fixed;left:50%;bottom:170px;transform:translateX(-50%) translateY(8px);
+    background:var(--ink);color:#fff;font-weight:700;font-size:14px;
+    padding:10px 18px;border-radius:999px;opacity:0;pointer-events:none;
+    transition:opacity .2s, transform .2s;z-index:3000;white-space:nowrap;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  /* ---------- Stats view ---------- */
+  #view-stats{position:absolute;inset:0;overflow-y:auto;padding:14px;display:none}
+  .stat-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:13px 14px}
+  .card .label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .card .big{font-size:28px;font-weight:800;margin-top:3px;letter-spacing:-0.5px}
+  .card .sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .card.rico{border-top:3px solid var(--rico)} .card.rico .big{color:var(--rico)}
+  .card.susi{border-top:3px solid var(--susi)} .card.susi .big{color:var(--susi)}
+  .section-title{font-size:13px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:20px 2px 8px}
+  .chart-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px}
+  .legend{display:flex;gap:14px;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  .empty{font-size:13px;color:var(--muted);padding:8px 2px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:6px 4px;border-bottom:1px solid var(--line)}
+  td{padding:7px 4px;border-bottom:1px solid var(--line)}
+  td:last-child,th:last-child{text-align:right}
+  .export-row{display:flex;gap:8px;flex-wrap:wrap}
+  .export-row .smallbtn{flex:1 1 30%}
+  .linkbtn{background:none;border:0;color:var(--muted);font-size:12.5px;font-weight:600;text-decoration:underline;cursor:pointer;font-family:inherit;margin:18px auto 30px;display:block}
+  /* ---------- Overlays / Modals ---------- */
+  .overlay{
+    position:fixed;inset:0;background:rgba(23,33,31,.55);z-index:5000;
+    display:flex;align-items:center;justify-content:center;padding:24px;
+  }
+  .overlay.hidden{display:none}
+  .modal{background:var(--card);border-radius:18px;padding:22px;width:100%;max-width:340px}
+  .modal h2{font-size:19px;font-weight:800;letter-spacing:-0.3px;margin-bottom:4px}
+  .modal p{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-height:1.45}
+  .who-row{display:flex;gap:10px}
+  .who-row button{
+    flex:1;border:0;border-radius:14px;padding:20px 0;font-size:18px;font-weight:800;
+    color:#fff;cursor:pointer;font-family:inherit;
+  }
+  #pickRico{background:var(--rico)} #pickSusi{background:var(--susi)}
+  .modal input[type=number]{
+    width:100%;font-size:24px;font-weight:800;padding:10px 12px;border:2px solid var(--line);
+    border-radius:12px;font-family:inherit;text-align:center;color:var(--ink);background:var(--paper);
+  }
+  .modal input[type=number]:focus{outline:none;border-color:var(--ink)}
+  .modal .hint{font-size:12px;color:var(--muted);margin-top:8px;text-align:center}
+  .modal-btns{display:flex;gap:10px;margin-top:16px}
+  .modal-btns button{
+    flex:1;border-radius:12px;padding:13px 0;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;
+  }
+  .btn-secondary{background:var(--paper);border:1px solid var(--line);color:var(--ink)}
+  .btn-primary{background:var(--ink);border:1px solid var(--ink);color:#fff}
+  #gpsBanner{
+    position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:950;
+    background:#C0392B;color:#fff;font-size:12.5px;font-weight:700;padding:8px 14px;
+    border-radius:999px;max-width:92%;text-align:center;display:none;box-shadow:0 2px 8px rgba(0,0,0,.2);
+  }
+  .leaflet-popup-content{font-family:inherit;font-size:13px;margin:10px 14px}
+  .pop-del{margin-top:6px;background:#C0392B;color:#fff;border:0;border-radius:8px;padding:6px 12px;font-weight:700;font-family:inherit;cursor:pointer;font-size:12px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-row">
+    <div class="logo">Flyer-Tracker <span>· Rico &amp; Susi</span></div>
+    <div class="me-badge" id="meBadge" style="display:none"><span class="me-dot"></span><span id="meName"></span></div>
+    <button class="iconbtn" id="btnRefresh" title="Daten des anderen nachladen">&#8635;</button>
+  </div>
+  <div class="status-row">
+    <div class="sync busy" id="sync"><span class="sync-dot"></span><span id="syncText">Lädt …</span></div>
+    <div class="gps-info" id="gpsInfo">GPS: warte auf Signal …</div>
+  </div>
+  <div class="tabs">
+    <button id="tabMap" class="active">Karte</button>
+    <button id="tabStats">Statistik</button>
+  </div>
+</header>
+
+<main>
+  <!-- ===== Karte ===== -->
+  <div id="view-map">
+    <div style="position:relative;flex:1;display:flex">
+      <div id="map"></div>
+      <div id="gpsBanner"></div>
+      <button class="map-fab" id="btnLocate" title="Auf meine Position zentrieren">&#9678;</button>
+    </div>
+    <div class="actionbar">
+      <div class="counter-strip">
+        <span>Heute eingeworfen: <b id="cntToday">0</b></span>
+        <span>Offene Tour: <b id="cntSession">0</b> Pins</span>
+      </div>
+      <div class="btn-row">
+        <button class="bigbtn" id="btnFlyer" disabled>📬 Eingeworfen<small id="flyerSub">warte auf GPS …</small></button>
+        <button class="bigbtn" id="btnSkip" disabled>🚫 Übersprungen<small>kein Flyer</small></button>
+      </div>
+      <div class="small-row">
+        <button class="smallbtn" id="btnUndo" disabled>↩ Rückgängig</button>
+        <button class="smallbtn" id="btnAuto">⚡ Auto-Pin: aus</button>
+        <button class="smallbtn" id="btnTour">🏁 Tour abschließen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Statistik ===== -->
+  <div id="view-stats"></div>
+</main>
+
+<div id="toast"></div>
+
+<!-- Namensauswahl -->
+<div class="overlay hidden" id="whoOverlay">
+  <div class="modal">
+    <h2>Wer bist du?</h2>
+    <p>Deine Pins werden in deiner Farbe gespeichert. Die Auswahl wird auf diesem Gerät gemerkt.</p>
+    <div class="who-row">
+      <button id="pickRico">Rico</button>
+      <button id="pickSusi">Susi</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tour abschließen -->
+<div class="overlay hidden" id="tourOverlay">
+  <div class="modal">
+    <h2>Tour abschließen</h2>
+    <p>Wie viele Flyer hast du auf dieser Tour verteilt? Vorausgefüllt ist die Anzahl deiner „Eingeworfen“-Pins – du kannst die Zahl anpassen (z.&nbsp;B. wenn ein Pin für 2 Flyer stand).</p>
+    <input type="number" id="tourFlyers" min="0" step="1" inputmode="numeric">
+    <div class="hint" id="tourHint"></div>
+    <div class="modal-btns">
+      <button class="btn-secondary" id="tourCancel">Abbrechen</button>
+      <button class="btn-primary" id="tourSave">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Einrichtung: Firebase-Adresse -->
+<div class="overlay hidden" id="setupOverlay">
+  <div class="modal">
+    <h2>Einrichtung</h2>
+    <p>Füge hier die Adresse eurer Firebase Realtime Database ein (siehe Anleitung, Schritt&nbsp;1). Sie wird auf diesem Gerät gespeichert – das machst du nur einmal.</p>
+    <input type="url" id="dbInput" placeholder="https://…firebasedatabase.app" autocomplete="off"
+      style="width:100%;font-size:13.5px;font-weight:600;padding:13px 12px;border:2px solid var(--line);border-radius:12px;font-family:inherit;background:var(--paper);color:var(--ink)">
+    <div class="hint" id="setupErr" style="min-height:17px;text-align:left"></div>
+    <div class="modal-btns">
+      <button class="btn-primary" id="setupSave" style="flex:1">Verbinden</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ================= Konstanten & Zustand ================= */
+const PEOPLE = {
+  rico: { name:"Rico", color:"#1F5FD0", soft:"#E3ECFB" },
+  susi: { name:"Susi", color:"#D03282", soft:"#FAE4F0" }
+};
+const AUTO_PIN_DIST = 50;      // Meter
+const COOLDOWN_S    = 5;       // Sekunden Sperre nach manuellem Pin
+const SYNC_EVERY_MS = 25000;   // Hintergrund-Sync
+
+let me = null;                 // "rico" | "susi"
+let myPos = null, myAcc = null;
+let data = { pins:{rico:[],susi:[]}, tours:{rico:[],susi:[]} };
+let dirty = { pins:false, tours:false };
+let session = [];              // IDs eigener Pins seit letztem Tour-Abschluss (nur diese Sitzung)
+let cooldownUntil = 0, cooldownIv = null;
+let autoPin = false, lastPinPos = null;
+let follow = true;
+let map, pinLayer, meMarker, accCircle;
+let saving = false;
+
+const $ = id => document.getElementById(id);
+const other = () => me === "rico" ? "susi" : "rico";
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+
+/* ================= Hilfsfunktionen ================= */
+function toast(msg){
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._tm);
+  t._tm = setTimeout(()=>t.classList.remove("show"), 1800);
+}
+function vibrate(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(e){} }
+function setSync(state, text){
+  const el = $("sync");
+  el.className = "sync " + state;
+  $("syncText").textContent = text;
+}
+function distM(a,b){
+  const R=6371000, toR=Math.PI/180;
+  const dLat=(b.lat-a.lat)*toR, dLng=(b.lng-a.lng)*toR;
+  const s=Math.sin(dLat/2)**2 + Math.cos(a.lat*toR)*Math.cos(b.lat*toR)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(s));
+}
+function dayKey(ts){
+  const d=new Date(ts);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function fmtDay(key){ const [y,m,d]=key.split("-"); return d+"."+m+"."; }
+function fmtTime(ts){ return new Date(ts).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+/* ================= Speicher (Firebase Realtime Database) ================= */
+let dbUrl = null;
+function normalizeDb(u){
+  if(!u) return null;
+  u = u.trim().replace(/\/+$/,"");
+  if(!/^https:\/\/[^\s]+$/.test(u)) return null;
+  return u;
+}
+async function dbGet(key){
+  const r = await fetch(dbUrl + "/" + key + ".json", {cache:"no-store"});
+  if(!r.ok) throw new Error("HTTP " + r.status);
+  return await r.json(); // null, wenn der Schlüssel noch nicht existiert
+}
+async function dbSet(key, val){
+  const r = await fetch(dbUrl + "/" + key + ".json", {
+    method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(val)
+  });
+  if(!r.ok) throw new Error("HTTP " + r.status);
+}
+async function loadKey(key, fallback){
+  try{
+    const v = await dbGet(key);
+    return Array.isArray(v) ? v : fallback;
+  }catch(e){ return fallback; }
+}
+async function loadAll(){
+  setSync("busy","Lädt …");
+  const [pr,ps,tr,ts] = await Promise.all([
+    loadKey("pins-rico",[]), loadKey("pins-susi",[]),
+    loadKey("tours-rico",[]), loadKey("tours-susi",[])
+  ]);
+  data.pins.rico=pr; data.pins.susi=ps; data.tours.rico=tr; data.tours.susi=ts;
+  setSync("ok","Synchronisiert");
+  renderAll();
+}
+async function refreshOthers(showToast){
+  if(!me) return;
+  const o = other();
+  setSync("busy","Aktualisiere …");
+  data.pins[o]  = await loadKey("pins-"+o,  data.pins[o]);
+  data.tours[o] = await loadKey("tours-"+o, data.tours[o]);
+  setSync(dirty.pins||dirty.tours ? "off" : "ok",
+          dirty.pins||dirty.tours ? "Offline – sende später" : "Synchronisiert");
+  renderAll();
+  if(showToast) toast("Aktualisiert ✓");
+}
+async function persist(kind){ // kind: "pins" | "tours"
+  if(!me || saving) { dirty[kind]=true; return; }
+  saving = true;
+  setSync("busy","Speichert …");
+  dirty[kind] = false;                                  // Änderungen ab jetzt setzen dirty erneut
+  const payload = data[kind][me].slice();              // Schnappschuss vor dem Senden
+  try{
+    await dbSet(kind+"-"+me, payload);
+    if(!dirty.pins && !dirty.tours) setSync("ok","Synchronisiert");
+  }catch(e){
+    dirty[kind] = true;
+    setSync("off","Offline – sende später");
+  }
+  saving = false;
+  // Falls währenddessen erneut Änderungen kamen oder der andere Typ dirty ist:
+  if(dirty.pins)  { const k="pins";  setTimeout(()=>persist(k), 500); }
+  else if(dirty.tours) { const k="tours"; setTimeout(()=>persist(k), 500); }
+}
+function markDirtyAndPersist(kind){ dirty[kind]=true; persist(kind); }
+
+/* Hintergrund: dirty nachsenden + Daten des anderen ziehen */
+setInterval(()=>{
+  if(dirty.pins) persist("pins");
+  if(dirty.tours) persist("tours");
+  refreshOthers(false);
+}, SYNC_EVERY_MS);
+document.addEventListener("visibilitychange", ()=>{
+  if(document.visibilityState==="visible") refreshOthers(false);
+});
+
+/* ================= Karte ================= */
+function initMap(){
+  map = L.map("map", { zoomControl:false, attributionControl:true });
+  map.setView([51.16, 10.45], 6); // Deutschland, bis GPS-Fix kommt
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19, attribution: "© OpenStreetMap"
+  }).addTo(map);
+  pinLayer = L.layerGroup().addTo(map);
+  map.on("dragstart", ()=>{ follow=false; });
+  $("btnLocate").onclick = ()=>{
+    follow = true;
+    if(myPos) map.setView([myPos.lat,myPos.lng], Math.max(map.getZoom(),17));
+  };
+}
+function renderPins(){
+  pinLayer.clearLayers();
+  for(const p of ["rico","susi"]){
+    const col = PEOPLE[p].color;
+    for(const pin of data.pins[p]){
+      const skipped = pin.t === "s";
+      const m = L.circleMarker([pin.lat,pin.lng],{
+        radius:7,
+        color: col, weight:2,
+        fillColor: skipped ? "#98A3A0" : col,
+        fillOpacity: 0.9
+      });
+      const own = p === me;
+      m.bindPopup(
+        '<b style="color:'+col+'">'+PEOPLE[p].name+'</b> · '+
+        (skipped ? "Übersprungen" : "Eingeworfen") + (pin.a ? " (auto)" : "") +
+        "<br>" + fmtTime(pin.ts) +
+        (own ? '<br><button class="pop-del" onclick="window.__delPin(\''+pin.id+'\')">Pin löschen</button>' : "")
+      );
+      m.addTo(pinLayer);
+    }
+  }
+}
+window.__delPin = function(id){
+  const arr = data.pins[me];
+  const i = arr.findIndex(p=>p.id===id);
+  if(i<0) return;
+  arr.splice(i,1);
+  session = session.filter(s=>s!==id);
+  map.closePopup();
+  renderPins(); updateCounters();
+  markDirtyAndPersist("pins");
+  toast("Pin gelöscht");
+};
+
+/* ================= GPS ================= */
+function startGPS(){
+  if(!navigator.geolocation){
+    showGpsBanner("Dieses Gerät unterstützt kein GPS im Browser.");
+    return;
+  }
+  navigator.geolocation.watchPosition(onPos, onPosErr, {
+    enableHighAccuracy:true, maximumAge:2000, timeout:15000
+  });
+}
+let firstFix = true;
+function onPos(ev){
+  hideGpsBanner();
+  myPos = { lat: ev.coords.latitude, lng: ev.coords.longitude };
+  myAcc = ev.coords.accuracy;
+  $("gpsInfo").textContent = "GPS: ±" + Math.round(myAcc) + " m";
+  if(!meMarker){
+    meMarker = L.circleMarker([myPos.lat,myPos.lng],{radius:8,color:"#fff",weight:3,fillColor:"#17211F",fillOpacity:1}).addTo(map);
+    accCircle = L.circle([myPos.lat,myPos.lng],{radius:myAcc,color:"#17211F",weight:1,opacity:.3,fillOpacity:.06}).addTo(map);
+  }else{
+    meMarker.setLatLng([myPos.lat,myPos.lng]);
+    accCircle.setLatLng([myPos.lat,myPos.lng]).setRadius(myAcc);
+  }
+  if(firstFix){ map.setView([myPos.lat,myPos.lng], 17); firstFix=false; }
+  else if(follow){ map.panTo([myPos.lat,myPos.lng], {animate:true}); }
+  updateButtons();
+  // Auto-Pin
+  if(autoPin && me){
+    if(!lastPinPos) lastPinPos = {...myPos};
+    else if(distM(lastPinPos,myPos) >= AUTO_PIN_DIST) addPin("f", true);
+  }
+}
+function onPosErr(err){
+  if(err.code === 1) showGpsBanner("Standort-Zugriff verweigert. Bitte in den Browser-Einstellungen erlauben und neu laden.");
+  else showGpsBanner("Kein GPS-Signal. Bitte kurz warten oder ins Freie gehen.");
+  $("gpsInfo").textContent = "GPS: kein Signal";
+}
+function showGpsBanner(msg){ const b=$("gpsBanner"); b.textContent=msg; b.style.display="block"; }
+function hideGpsBanner(){ $("gpsBanner").style.display="none"; }
+
+/* ================= Pins setzen ================= */
+function addPin(type, isAuto){
+  if(!me || !myPos) return;
+  const now = Date.now();
+  if(!isAuto && now < cooldownUntil) return;
+  const pin = { id:uid(), lat:+myPos.lat.toFixed(6), lng:+myPos.lng.toFixed(6), t:type, a:!!isAuto, ts:now };
+  data.pins[me].push(pin);
+  session.push(pin.id);
+  lastPinPos = { lat:pin.lat, lng:pin.lng };
+  renderPins(); updateCounters();
+  markDirtyAndPersist("pins");
+  vibrate(isAuto ? 40 : 90);
+  toast(type==="f" ? (isAuto ? "Auto-Pin gesetzt ✓" : "Eingeworfen gespeichert ✓") : "Übersprungen gespeichert ✓");
+  if(!isAuto) startCooldown();
+}
+function startCooldown(){
+  cooldownUntil = Date.now() + COOLDOWN_S*1000;
+  updateButtons();
+  clearInterval(cooldownIv);
+  cooldownIv = setInterval(()=>{
+    const left = Math.ceil((cooldownUntil - Date.now())/1000);
+    if(left <= 0){ clearInterval(cooldownIv); cooldownIv=null; }
+    updateButtons();
+  }, 250);
+}
+function updateButtons(){
+  const left = Math.ceil((cooldownUntil - Date.now())/1000);
+  const cooling = left > 0;
+  const ready = !!(me && myPos);
+  $("btnFlyer").disabled = !ready || cooling;
+  $("btnSkip").disabled  = !ready || cooling;
+  $("flyerSub").textContent = !ready ? "warte auf GPS …" : (cooling ? "noch "+left+" s …" : "Flyer ist drin");
+  $("btnUndo").disabled = session.length === 0;
+}
+function undo(){
+  if(session.length === 0) return;
+  const id = session[session.length-1];
+  const arr = data.pins[me];
+  const i = arr.findIndex(p=>p.id===id);
+  if(i>=0) arr.splice(i,1);
+  session.pop();
+  renderPins(); updateCounters();
+  markDirtyAndPersist("pins");
+  toast("Letzter Pin entfernt ↩");
+}
+
+/* ================= Zähler ================= */
+function sessionFlyerCount(){
+  const ids = new Set(session);
+  return data.pins[me] ? data.pins[me].filter(p=>ids.has(p.id) && p.t==="f").length : 0;
+}
+function updateCounters(){
+  if(!me) return;
+  const today = dayKey(Date.now());
+  const todayPins = data.pins[me].filter(p=>p.t==="f" && dayKey(p.ts)===today).length;
+  $("cntToday").textContent = todayPins;
+  $("cntSession").textContent = sessionFlyerCount();
+  updateButtons();
+}
+
+/* ================= Tour abschließen ================= */
+function openTour(){
+  const n = sessionFlyerCount();
+  $("tourFlyers").value = n;
+  $("tourHint").textContent = n === 1 ? "1 „Eingeworfen“-Pin in dieser Tour" : n + " „Eingeworfen“-Pins in dieser Tour";
+  $("tourOverlay").classList.remove("hidden");
+}
+function saveTour(){
+  const val = Math.max(0, parseInt($("tourFlyers").value,10) || 0);
+  const tour = { id:uid(), ts:Date.now(), pins:sessionFlyerCount(), flyers:val };
+  data.tours[me].push(tour);
+  session = [];
+  $("tourOverlay").classList.add("hidden");
+  updateCounters(); renderStats();
+  markDirtyAndPersist("tours");
+  toast("Tour gespeichert: "+val+" Flyer 🏁");
+}
+
+/* ================= Statistik ================= */
+function aggregate(){
+  const days = {}; // key -> {rico:{fly,pins},susi:{...}}
+  const tot = { rico:{fly:0,pins:0,skip:0,tours:0}, susi:{fly:0,pins:0,skip:0,tours:0} };
+  for(const p of ["rico","susi"]){
+    for(const t of data.tours[p]){
+      tot[p].fly += t.flyers; tot[p].tours++;
+      const k = dayKey(t.ts);
+      days[k] = days[k] || {rico:{fly:0,pins:0},susi:{fly:0,pins:0}};
+      days[k][p].fly += t.flyers;
+    }
+    for(const pin of data.pins[p]){
+      if(pin.t==="f") tot[p].pins++; else tot[p].skip++;
+      const k = dayKey(pin.ts);
+      days[k] = days[k] || {rico:{fly:0,pins:0},susi:{fly:0,pins:0}};
+      if(pin.t==="f") days[k][p].pins++;
+    }
+  }
+  const keys = Object.keys(days).sort();
+  return { days, keys, tot };
+}
+function barChartSVG(keys, days){
+  if(keys.length===0) return '<div class="empty">Noch keine Daten – schließe deine erste Tour ab.</div>';
+  const W=340, H=170, padB=22, padL=4, padT=14;
+  const shown = keys.slice(-14); // letzte 14 Tage mit Daten
+  const maxV = Math.max(1, ...shown.map(k=>Math.max(days[k].rico.fly, days[k].susi.fly)));
+  const groupW = (W-padL*2)/shown.length;
+  const barW = Math.min(16, groupW*0.32);
+  let s = '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">';
+  shown.forEach((k,i)=>{
+    const cx = padL + groupW*i + groupW/2;
+    const hR = (days[k].rico.fly/maxV)*(H-padB-padT);
+    const hS = (days[k].susi.fly/maxV)*(H-padB-padT);
+    if(days[k].rico.fly>0){
+      s += '<rect x="'+(cx-barW-1)+'" y="'+(H-padB-hR)+'" width="'+barW+'" height="'+hR+'" rx="3" fill="'+PEOPLE.rico.color+'"/>';
+      s += '<text x="'+(cx-barW/2-1)+'" y="'+(H-padB-hR-3)+'" font-size="8.5" font-weight="700" text-anchor="middle" fill="'+PEOPLE.rico.color+'">'+days[k].rico.fly+'</text>';
+    }
+    if(days[k].susi.fly>0){
+      s += '<rect x="'+(cx+1)+'" y="'+(H-padB-hS)+'" width="'+barW+'" height="'+hS+'" rx="3" fill="'+PEOPLE.susi.color+'"/>';
+      s += '<text x="'+(cx+barW/2+1)+'" y="'+(H-padB-hS-3)+'" font-size="8.5" font-weight="700" text-anchor="middle" fill="'+PEOPLE.susi.color+'">'+days[k].susi.fly+'</text>';
+    }
+    s += '<text x="'+cx+'" y="'+(H-7)+'" font-size="9" text-anchor="middle" fill="#6B7774">'+fmtDay(k)+'</text>';
+  });
+  s += '<line x1="0" y1="'+(H-padB)+'" x2="'+W+'" y2="'+(H-padB)+'" stroke="#DDE3E1"/>';
+  s += "</svg>";
+  return s;
+}
+function lineChartSVG(keys, days){
+  if(keys.length===0) return "";
+  const W=340, H=150, padB=22, padL=4, padT=10;
+  let cr=0, cs=0;
+  const pts = keys.map(k=>{ cr+=days[k].rico.fly; cs+=days[k].susi.fly; return {k, r:cr, s:cs}; });
+  const maxV = Math.max(1, cr, cs);
+  const x = i => keys.length===1 ? W/2 : padL + (W-padL*2)*(i/(keys.length-1));
+  const y = v => (H-padB) - (v/maxV)*(H-padB-padT);
+  const path = sel => pts.map((p,i)=>(i?"L":"M")+x(i).toFixed(1)+","+y(p[sel]).toFixed(1)).join(" ");
+  let s = '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">';
+  s += '<line x1="0" y1="'+(H-padB)+'" x2="'+W+'" y2="'+(H-padB)+'" stroke="#DDE3E1"/>';
+  s += '<path d="'+path("r")+'" fill="none" stroke="'+PEOPLE.rico.color+'" stroke-width="2.5" stroke-linecap="round"/>';
+  s += '<path d="'+path("s")+'" fill="none" stroke="'+PEOPLE.susi.color+'" stroke-width="2.5" stroke-linecap="round"/>';
+  const last = pts[pts.length-1];
+  s += '<text x="'+(W-4)+'" y="'+(y(last.r)-4)+'" font-size="10" font-weight="800" text-anchor="end" fill="'+PEOPLE.rico.color+'">'+last.r+'</text>';
+  s += '<text x="'+(W-4)+'" y="'+(y(last.s)+12)+'" font-size="10" font-weight="800" text-anchor="end" fill="'+PEOPLE.susi.color+'">'+last.s+'</text>';
+  // X-Beschriftung: erster und letzter Tag
+  s += '<text x="'+padL+'" y="'+(H-7)+'" font-size="9" fill="#6B7774">'+fmtDay(keys[0])+'</text>';
+  s += '<text x="'+(W-padL)+'" y="'+(H-7)+'" font-size="9" text-anchor="end" fill="#6B7774">'+fmtDay(keys[keys.length-1])+'</text>';
+  s += "</svg>";
+  return s;
+}
+function renderStats(){
+  const v = $("view-stats");
+  const { days, keys, tot } = aggregate();
+  const today = dayKey(Date.now());
+  const todayR = days[today] ? days[today].rico.fly : 0;
+  const todayS = days[today] ? days[today].susi.fly : 0;
+  const allTours = [...data.tours.rico.map(t=>({...t,p:"rico"})), ...data.tours.susi.map(t=>({...t,p:"susi"}))]
+                   .sort((a,b)=>b.ts-a.ts).slice(0,12);
+  const openHint = me && sessionFlyerCount()>0
+    ? '<div class="empty">Hinweis: Deine offene Tour ('+sessionFlyerCount()+' Pins) zählt erst nach „Tour abschließen“ in die Flyer-Statistik.</div>' : "";
+
+  v.innerHTML =
+    '<div class="stat-cards">' +
+      '<div class="card rico"><div class="label">Rico · Flyer gesamt</div><div class="big">'+tot.rico.fly+'</div><div class="sub">heute: '+todayR+' · Touren: '+tot.rico.tours+'</div></div>' +
+      '<div class="card susi"><div class="label">Susi · Flyer gesamt</div><div class="big">'+tot.susi.fly+'</div><div class="sub">heute: '+todayS+' · Touren: '+tot.susi.tours+'</div></div>' +
+      '<div class="card"><div class="label">Pins „Eingeworfen“</div><div class="big">'+(tot.rico.pins+tot.susi.pins)+'</div><div class="sub">Rico '+tot.rico.pins+' · Susi '+tot.susi.pins+'</div></div>' +
+      '<div class="card"><div class="label">Übersprungen</div><div class="big">'+(tot.rico.skip+tot.susi.skip)+'</div><div class="sub">Rico '+tot.rico.skip+' · Susi '+tot.susi.skip+'</div></div>' +
+    '</div>' +
+    openHint +
+    '<div class="section-title">Flyer pro Tag</div>' +
+    '<div class="chart-card">' +
+      '<div class="legend"><span><i style="background:'+PEOPLE.rico.color+'"></i>Rico</span><span><i style="background:'+PEOPLE.susi.color+'"></i>Susi</span></div>' +
+      barChartSVG(keys, days) +
+    '</div>' +
+    (keys.length ? '<div class="section-title">Gesamt im Zeitverlauf</div><div class="chart-card">'+lineChartSVG(keys, days)+'</div>' : "") +
+    '<div class="section-title">Letzte Touren</div>' +
+    '<div class="chart-card">' +
+      (allTours.length === 0 ? '<div class="empty">Noch keine Touren abgeschlossen.</div>' :
+      '<table><tr><th>Wer</th><th>Wann</th><th>Pins</th><th>Flyer</th></tr>' +
+        allTours.map(t=>'<tr><td style="color:'+PEOPLE[t.p].color+';font-weight:700">'+PEOPLE[t.p].name+'</td><td>'+fmtTime(t.ts)+'</td><td style="text-align:right">'+t.pins+'</td><td style="text-align:right;font-weight:700">'+t.flyers+'</td></tr>').join("") +
+      "</table>") +
+    '</div>' +
+    '<div class="section-title">Export</div>' +
+    '<div class="export-row">' +
+      '<button class="smallbtn" id="expPins">Pins (CSV)</button>' +
+      '<button class="smallbtn" id="expTours">Touren (CSV)</button>' +
+      '<button class="smallbtn" id="expGpx">Pins (GPX)</button>' +
+    '</div>' +
+    '<div class="section-title">Einrichtung</div>' +
+    '<div class="export-row">' +
+      '<button class="smallbtn" id="copyLink">Link für Susi kopieren</button>' +
+      '<button class="smallbtn" id="changeDb">Datenbank ändern</button>' +
+    '</div>' +
+    '<button class="linkbtn" id="switchWho">Person wechseln (aktuell: '+(me?PEOPLE[me].name:"–")+')</button>';
+
+  $("copyLink").onclick = copyShareLink;
+  $("changeDb").onclick = ()=>{
+    $("dbInput").value = dbUrl || "";
+    $("setupErr").textContent = "";
+    $("setupOverlay").classList.remove("hidden");
+  };
+  $("expPins").onclick = exportPinsCSV;
+  $("expTours").onclick = exportToursCSV;
+  $("expGpx").onclick = exportGPX;
+  $("switchWho").onclick = ()=>$("whoOverlay").classList.remove("hidden");
+}
+
+/* ================= Export ================= */
+function download(name, text, mime){
+  const blob = new Blob([text], {type:mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 800);
+}
+function exportPinsCSV(){
+  let s = "person;typ;auto;lat;lng;zeitpunkt\n";
+  for(const p of ["rico","susi"]) for(const pin of data.pins[p])
+    s += PEOPLE[p].name+";"+(pin.t==="f"?"eingeworfen":"uebersprungen")+";"+(pin.a?"ja":"nein")+";"+pin.lat+";"+pin.lng+";"+new Date(pin.ts).toISOString()+"\n";
+  download("flyer-pins.csv", s, "text/csv");
+}
+function exportToursCSV(){
+  let s = "person;zeitpunkt;pins;flyer\n";
+  for(const p of ["rico","susi"]) for(const t of data.tours[p])
+    s += PEOPLE[p].name+";"+new Date(t.ts).toISOString()+";"+t.pins+";"+t.flyers+"\n";
+  download("flyer-touren.csv", s, "text/csv");
+}
+function exportGPX(){
+  let s = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Flyer-Tracker" xmlns="http://www.topografix.com/GPX/1/1">\n';
+  for(const p of ["rico","susi"]) for(const pin of data.pins[p])
+    s += '  <wpt lat="'+pin.lat+'" lon="'+pin.lng+'"><time>'+new Date(pin.ts).toISOString()+'</time><name>'+PEOPLE[p].name+' – '+(pin.t==="f"?"eingeworfen":"übersprungen")+'</name></wpt>\n';
+  s += "</gpx>";
+  download("flyer-pins.gpx", s, "application/gpx+xml");
+}
+
+/* ================= Person ================= */
+async function setMe(who, save){
+  me = who;
+  document.body.classList.toggle("is-susi", who==="susi");
+  const badge = $("meBadge");
+  badge.style.display = "flex";
+  badge.className = "me-badge" + (who==="susi" ? " susi" : "");
+  $("meName").textContent = PEOPLE[who].name;
+  $("whoOverlay").classList.add("hidden");
+  updateCounters(); renderStats();
+  if(save){
+    try{ localStorage.setItem("flyer-me", who); }catch(e){ /* nicht kritisch */ }
+  }
+}
+
+/* ================= Tabs ================= */
+function showTab(which){
+  const isMap = which==="map";
+  $("view-map").style.display = isMap ? "flex" : "none";
+  $("view-stats").style.display = isMap ? "none" : "block";
+  $("tabMap").classList.toggle("active", isMap);
+  $("tabStats").classList.toggle("active", !isMap);
+  if(isMap) setTimeout(()=>map.invalidateSize(), 60);
+  else renderStats();
+}
+
+/* ================= Events ================= */
+$("btnFlyer").onclick = ()=>addPin("f", false);
+$("btnSkip").onclick  = ()=>addPin("s", false);
+$("btnUndo").onclick  = undo;
+$("btnTour").onclick  = openTour;
+$("tourCancel").onclick = ()=>$("tourOverlay").classList.add("hidden");
+$("tourSave").onclick = saveTour;
+$("btnRefresh").onclick = ()=>refreshOthers(true);
+$("btnAuto").onclick = ()=>{
+  autoPin = !autoPin;
+  const b = $("btnAuto");
+  b.textContent = "⚡ Auto-Pin: " + (autoPin ? "an" : "aus");
+  b.classList.toggle("toggled", autoPin);
+  if(autoPin){
+    lastPinPos = myPos ? {...myPos} : null;
+    toast("Auto-Pin an: alle ~"+AUTO_PIN_DIST+" m ein Pin. Bildschirm anlassen!");
+  }else toast("Auto-Pin aus");
+};
+$("pickRico").onclick = ()=>setMe("rico", true);
+$("pickSusi").onclick = ()=>setMe("susi", true);
+$("tabMap").onclick = ()=>showTab("map");
+$("tabStats").onclick = ()=>showTab("stats");
+
+/* ================= Teilen ================= */
+function copyShareLink(){
+  if(!dbUrl){ toast("Erst Datenbank einrichten"); return; }
+  const link = location.origin + location.pathname + "?db=" + encodeURIComponent(dbUrl);
+  const done = ()=>toast("Link kopiert ✓ – an Susi schicken");
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(link).then(done).catch(()=>window.prompt("Link manuell kopieren:", link));
+  } else window.prompt("Link manuell kopieren:", link);
+}
+
+/* ================= Start ================= */
+async function testDb(url){
+  const r = await fetch(url + "/ping.json", {cache:"no-store"});
+  if(!r.ok) throw new Error("HTTP " + r.status);
+}
+async function startApp(){
+  $("setupOverlay").classList.add("hidden");
+  let saved = null;
+  try{ saved = localStorage.getItem("flyer-me"); }catch(e){}
+  if(saved === "rico" || saved === "susi") setMe(saved, false);
+  else $("whoOverlay").classList.remove("hidden");
+  await loadAll();
+  updateCounters();
+}
+$("setupSave").onclick = async ()=>{
+  const n = normalizeDb($("dbInput").value);
+  const err = $("setupErr");
+  if(!n){ err.style.color = "#C0392B"; err.textContent = "Bitte eine gültige https://…-Adresse einfügen."; return; }
+  $("setupSave").disabled = true;
+  err.style.color = "var(--muted)"; err.textContent = "Prüfe Verbindung …";
+  try{
+    dbUrl = n;
+    await testDb(n);
+    try{ localStorage.setItem("flyer-db", n); }catch(e){}
+    err.textContent = "";
+    startApp();
+  }catch(e){
+    dbUrl = null;
+    err.style.color = "#C0392B";
+    err.textContent = "Keine Verbindung. Stimmen die Adresse und die Datenbank-Regeln (.read/.write auf true)?";
+  }
+  $("setupSave").disabled = false;
+};
+(function boot(){
+  initMap();
+  startGPS();
+  // Datenbank-Adresse aus geteiltem Link übernehmen (?db=… oder #db=…)
+  let fromLink = null;
+  try{
+    fromLink = new URLSearchParams(location.search).get("db");
+    if(!fromLink && location.hash.indexOf("#db=") === 0) fromLink = decodeURIComponent(location.hash.slice(4));
+  }catch(e){}
+  const n = normalizeDb(fromLink);
+  if(n){ try{ localStorage.setItem("flyer-db", n); }catch(e){} }
+  try{ dbUrl = localStorage.getItem("flyer-db"); }catch(e){}
+  if(!dbUrl && n) dbUrl = n;
+  if(dbUrl) startApp();
+  else $("setupOverlay").classList.remove("hidden");
+})();
+
+})();
+</script>
+</body>
+</html>
