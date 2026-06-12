@@ -6,49 +6,27 @@
 <title>Flyer-Tracker</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
 <style>
   :root{
-    --ink:#17211F;
-    --paper:#F3F5F4;
-    --card:#FFFFFF;
-    --line:#DDE3E1;
-    --muted:#6B7774;
-    --rico:#1F5FD0;
-    --rico-soft:#E3ECFB;
-    --susi:#D03282;
-    --susi-soft:#FAE4F0;
-    --skip:#98A3A0;
-    --ok:#1E8A5A;
-    --warn:#C8772A;
-    --radius:14px;
+    --ink:#17211F; --paper:#F3F5F4; --card:#FFFFFF; --line:#DDE3E1; --muted:#6B7774;
+    --rico:#1F5FD0; --rico-soft:#E3ECFB; --susi:#D03282; --susi-soft:#FAE4F0;
+    --skip:#98A3A0; --ok:#1E8A5A; --warn:#C8772A; --radius:14px;
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;overscroll-behavior:none}
   body{
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-    background:var(--paper);color:var(--ink);
-    display:flex;flex-direction:column;height:100dvh;
+    background:var(--paper);color:var(--ink);display:flex;flex-direction:column;height:100dvh;
   }
-  /* ---------- Header ---------- */
-  header{
-    background:var(--card);border-bottom:1px solid var(--line);
-    padding:10px 14px 8px;flex:0 0 auto;z-index:1200;
-  }
+  header{background:var(--card);border-bottom:1px solid var(--line);padding:10px 14px 8px;flex:0 0 auto;z-index:1200}
   .head-row{display:flex;align-items:center;gap:10px}
   .logo{font-weight:800;font-size:17px;letter-spacing:-0.2px}
   .logo span{color:var(--muted);font-weight:600}
-  .me-badge{
-    margin-left:auto;display:flex;align-items:center;gap:6px;
-    font-weight:700;font-size:14px;padding:4px 10px;border-radius:999px;
-    background:var(--rico-soft);color:var(--rico);
-  }
+  .me-badge{margin-left:auto;display:flex;align-items:center;gap:6px;font-weight:700;font-size:14px;padding:4px 10px;border-radius:999px;background:var(--rico-soft);color:var(--rico)}
   .me-badge.susi{background:var(--susi-soft);color:var(--susi)}
   .me-dot{width:9px;height:9px;border-radius:50%;background:currentColor}
-  .iconbtn{
-    width:36px;height:36px;border-radius:10px;border:1px solid var(--line);
-    background:var(--card);font-size:17px;line-height:1;cursor:pointer;color:var(--ink);
-    display:flex;align-items:center;justify-content:center;
-  }
+  .iconbtn{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-size:17px;line-height:1;cursor:pointer;color:var(--ink);display:flex;align-items:center;justify-content:center}
   .iconbtn:active{background:var(--paper)}
   .status-row{display:flex;align-items:center;gap:14px;margin-top:7px;font-size:12px;color:var(--muted)}
   .sync{display:flex;align-items:center;gap:5px;font-weight:600}
@@ -58,33 +36,26 @@
   .sync.off .sync-dot{background:#C0392B;animation:blink 1s infinite} .sync.off{color:#C0392B}
   @keyframes blink{50%{opacity:.3}}
   .gps-info{margin-left:auto}
-  /* ---------- Tabs ---------- */
   .tabs{display:flex;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:3px;margin-top:8px}
-  .tabs button{
-    flex:1;border:0;background:transparent;padding:7px 0;border-radius:8px;
-    font-weight:700;font-size:13.5px;color:var(--muted);cursor:pointer;font-family:inherit;
-  }
+  .tabs button{flex:1;border:0;background:transparent;padding:7px 0;border-radius:8px;font-weight:700;font-size:13.5px;color:var(--muted);cursor:pointer;font-family:inherit}
   .tabs button.active{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
-  /* ---------- Map view ---------- */
   main{flex:1;position:relative;overflow:hidden}
   #view-map{position:absolute;inset:0;display:flex;flex-direction:column}
   #map{flex:1;z-index:1}
-  .map-fab{
-    position:absolute;right:12px;bottom:12px;z-index:900;
-    width:44px;height:44px;border-radius:12px;border:1px solid var(--line);
-    background:var(--card);font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);
+  #map.backfill{cursor:crosshair}
+  .map-fabs{position:absolute;right:12px;bottom:12px;z-index:900;display:flex;flex-direction:column;gap:8px}
+  .map-fab{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);color:var(--ink)}
+  .map-fab.toggled{background:var(--ink);color:#fff;border-color:var(--ink)}
+  #bfBanner{
+    position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:950;
+    background:var(--ink);color:#fff;font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:999px;
+    max-width:92%;text-align:center;display:none;box-shadow:0 2px 8px rgba(0,0,0,.2);
   }
-  /* ---------- Action bar ---------- */
-  .actionbar{
-    flex:0 0 auto;background:var(--card);border-top:1px solid var(--line);
-    padding:10px 12px calc(10px + env(safe-area-inset-bottom));z-index:1000;
-  }
+  .actionbar{flex:0 0 auto;background:var(--card);border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom));z-index:1000}
   .btn-row{display:flex;gap:10px}
   .bigbtn{
-    flex:1;border:0;border-radius:var(--radius);padding:16px 8px;
-    font-size:16.5px;font-weight:800;font-family:inherit;cursor:pointer;color:#fff;
-    display:flex;flex-direction:column;align-items:center;gap:2px;
-    transition:transform .08s, opacity .15s;
+    flex:1;border:0;border-radius:var(--radius);padding:16px 8px;font-size:16.5px;font-weight:800;font-family:inherit;
+    cursor:pointer;color:#fff;display:flex;flex-direction:column;align-items:center;gap:2px;transition:transform .08s,opacity .15s;
   }
   .bigbtn small{font-weight:600;font-size:11px;opacity:.85}
   .bigbtn:active{transform:scale(.97)}
@@ -93,52 +64,32 @@
   body.is-susi #btnFlyer{background:var(--susi)}
   #btnSkip{background:var(--skip)}
   .small-row{display:flex;gap:8px;margin-top:8px}
-  .smallbtn{
-    flex:1;border:1px solid var(--line);background:var(--paper);border-radius:10px;
-    padding:9px 4px;font-size:12.5px;font-weight:700;font-family:inherit;color:var(--ink);cursor:pointer;
-  }
+  .smallbtn{flex:1;border:1px solid var(--line);background:var(--paper);border-radius:10px;padding:9px 4px;font-size:12.5px;font-weight:700;font-family:inherit;color:var(--ink);cursor:pointer}
   .smallbtn:disabled{opacity:.4}
   .smallbtn.toggled{background:var(--ink);color:#fff;border-color:var(--ink)}
-  .counter-strip{
-    display:flex;justify-content:center;gap:18px;font-size:12px;color:var(--muted);
-    margin-bottom:8px;font-weight:600;
-  }
+  .counter-strip{display:flex;justify-content:center;gap:18px;font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600}
   .counter-strip b{color:var(--ink)}
-  /* ---------- Mengen-Stepper ---------- */
-  .qty{
-    flex:0 0 58px;display:flex;flex-direction:column;border:1px solid var(--line);
-    border-radius:var(--radius);overflow:hidden;background:var(--card);
-  }
+  .qty{flex:0 0 66px;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--card)}
   .qty .cap{font-size:9px;font-weight:800;letter-spacing:.06em;color:var(--muted);text-align:center;padding:4px 0 0;text-transform:uppercase}
-  .qty input{
-    flex:1;border:0;width:100%;text-align:center;font-size:18px;font-weight:800;
-    font-family:inherit;background:transparent;color:var(--ink);min-width:0;-moz-appearance:textfield;
-  }
+  .qty input{flex:1;border:0;width:100%;text-align:center;font-size:18px;font-weight:800;font-family:inherit;background:transparent;color:var(--ink);min-width:0;-moz-appearance:textfield}
   .qty input::-webkit-outer-spin-button,.qty input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
-  .qty .qbtns{display:flex;height:27px;border-top:1px solid var(--line)}
-  .qty .qbtns button{flex:1;border:0;background:var(--paper);font-weight:800;font-size:16px;color:var(--ink);cursor:pointer;font-family:inherit;line-height:1}
+  .qty .qbtns{display:flex;height:38px;border-top:1px solid var(--line)}
+  .qty .qbtns button{flex:1;border:0;background:var(--paper);font-weight:800;font-size:21px;color:var(--ink);cursor:pointer;font-family:inherit;line-height:1}
   .qty .qbtns button:active{background:var(--line)}
   .qty .qbtns button+button{border-left:1px solid var(--line)}
-  /* ---------- Abgegeben-Screen ---------- */
   #view-give{position:absolute;inset:0;overflow-y:auto;padding:14px;display:none}
   .form-grid{display:grid;grid-template-columns:1fr 80px;gap:10px;margin-bottom:10px}
   .field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:4px}
-  .field input{
-    width:100%;padding:11px 10px;border:2px solid var(--line);border-radius:10px;
-    font-family:inherit;font-size:15px;font-weight:600;background:var(--paper);color:var(--ink);
-  }
+  .field input{width:100%;padding:11px 10px;border:2px solid var(--line);border-radius:10px;font-family:inherit;font-size:15px;font-weight:600;background:var(--paper);color:var(--ink)}
   .field input:focus{outline:none;border-color:var(--ink)}
   .give-save{width:100%;border:0;border-radius:12px;padding:14px 0;font-size:15.5px;font-weight:800;font-family:inherit;color:#fff;background:var(--ink);cursor:pointer}
   .give-del{background:none;border:0;color:#C0392B;font-size:16px;font-weight:800;cursor:pointer;padding:2px 8px}
-  /* ---------- Toast ---------- */
   #toast{
     position:fixed;left:50%;bottom:170px;transform:translateX(-50%) translateY(8px);
-    background:var(--ink);color:#fff;font-weight:700;font-size:14px;
-    padding:10px 18px;border-radius:999px;opacity:0;pointer-events:none;
-    transition:opacity .2s, transform .2s;z-index:3000;white-space:nowrap;
+    background:var(--ink);color:#fff;font-weight:700;font-size:14px;padding:10px 18px;border-radius:999px;
+    opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:3000;white-space:nowrap;max-width:94%;
   }
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-  /* ---------- Stats view ---------- */
   #view-stats{position:absolute;inset:0;overflow-y:auto;padding:14px;display:none}
   .stat-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:13px 14px}
@@ -156,43 +107,38 @@
   th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:6px 4px;border-bottom:1px solid var(--line)}
   td{padding:7px 4px;border-bottom:1px solid var(--line)}
   td:last-child,th:last-child{text-align:right}
+  tr.rowbtn{cursor:pointer}
+  tr.rowbtn:active{background:var(--paper)}
   .export-row{display:flex;gap:8px;flex-wrap:wrap}
   .export-row .smallbtn{flex:1 1 30%}
   .linkbtn{background:none;border:0;color:var(--muted);font-size:12.5px;font-weight:600;text-decoration:underline;cursor:pointer;font-family:inherit;margin:18px auto 30px;display:block}
-  /* ---------- Overlays / Modals ---------- */
-  .overlay{
-    position:fixed;inset:0;background:rgba(23,33,31,.55);z-index:5000;
-    display:flex;align-items:center;justify-content:center;padding:24px;
-  }
+  .overlay{position:fixed;inset:0;background:rgba(23,33,31,.55);z-index:5000;display:flex;align-items:center;justify-content:center;padding:24px}
   .overlay.hidden{display:none}
-  .modal{background:var(--card);border-radius:18px;padding:22px;width:100%;max-width:340px}
+  .modal{background:var(--card);border-radius:18px;padding:22px;width:100%;max-width:360px;max-height:86dvh;overflow-y:auto}
   .modal h2{font-size:19px;font-weight:800;letter-spacing:-0.3px;margin-bottom:4px}
-  .modal p{font-size:13.5px;color:var(--muted);margin-bottom:16px;line-height:1.45}
+  .modal p{font-size:13.5px;color:var(--muted);margin-bottom:14px;line-height:1.45}
   .who-row{display:flex;gap:10px}
-  .who-row button{
-    flex:1;border:0;border-radius:14px;padding:20px 0;font-size:18px;font-weight:800;
-    color:#fff;cursor:pointer;font-family:inherit;
-  }
+  .who-row button{flex:1;border:0;border-radius:14px;padding:20px 0;font-size:18px;font-weight:800;color:#fff;cursor:pointer;font-family:inherit}
   #pickRico{background:var(--rico)} #pickSusi{background:var(--susi)}
-  .modal input[type=number]{
-    width:100%;font-size:24px;font-weight:800;padding:10px 12px;border:2px solid var(--line);
-    border-radius:12px;font-family:inherit;text-align:center;color:var(--ink);background:var(--paper);
-  }
+  .modal input[type=number]{width:100%;font-size:24px;font-weight:800;padding:10px 12px;border:2px solid var(--line);border-radius:12px;font-family:inherit;text-align:center;color:var(--ink);background:var(--paper)}
   .modal input[type=number]:focus{outline:none;border-color:var(--ink)}
   .modal .hint{font-size:12px;color:var(--muted);margin-top:8px;text-align:center}
   .modal-btns{display:flex;gap:10px;margin-top:16px}
-  .modal-btns button{
-    flex:1;border-radius:12px;padding:13px 0;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;
-  }
+  .modal-btns button{flex:1;border-radius:12px;padding:13px 0;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit}
   .btn-secondary{background:var(--paper);border:1px solid var(--line);color:var(--ink)}
   .btn-primary{background:var(--ink);border:1px solid var(--ink);color:#fff}
+  .kv{display:flex;justify-content:space-between;font-size:14px;padding:7px 0;border-bottom:1px solid var(--line)}
+  .kv:last-of-type{border-bottom:0}
+  .kv b{font-weight:800}
   #gpsBanner{
-    position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:950;
-    background:#C0392B;color:#fff;font-size:12.5px;font-weight:700;padding:8px 14px;
-    border-radius:999px;max-width:92%;text-align:center;display:none;box-shadow:0 2px 8px rgba(0,0,0,.2);
+    position:absolute;top:52px;left:50%;transform:translateX(-50%);z-index:950;background:#C0392B;color:#fff;
+    font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:999px;max-width:92%;text-align:center;display:none;
+    box-shadow:0 2px 8px rgba(0,0,0,.2);
   }
   .leaflet-popup-content{font-family:inherit;font-size:13px;margin:10px 14px}
   .pop-del{margin-top:6px;background:#C0392B;color:#fff;border:0;border-radius:8px;padding:6px 12px;font-weight:700;font-family:inherit;cursor:pointer;font-size:12px}
+  .pop-add{margin:3px 4px 0 0;border:0;border-radius:8px;padding:7px 12px;font-weight:700;font-family:inherit;cursor:pointer;font-size:12px;color:#fff}
+  .presence-label{background:var(--card);border:1px solid var(--line);border-radius:8px;font-weight:800;font-size:11px;padding:2px 7px;box-shadow:0 1px 4px rgba(0,0,0,.15)}
 </style>
 </head>
 <body>
@@ -209,7 +155,7 @@
   </div>
   <div class="tabs">
     <button id="tabMap" class="active">Karte</button>
-    <button id="tabGive">Abgegeben</button>
+    <button id="tabGive">Bestand</button>
     <button id="tabStats">Statistik</button>
   </div>
 </header>
@@ -219,13 +165,17 @@
   <div id="view-map">
     <div style="position:relative;flex:1;display:flex">
       <div id="map"></div>
+      <div id="bfBanner">Nachtrag-Modus: auf die Karte tippen, um einen Pin zu setzen</div>
       <div id="gpsBanner"></div>
-      <button class="map-fab" id="btnLocate" title="Auf meine Position zentrieren">&#9678;</button>
+      <div class="map-fabs">
+        <button class="map-fab" id="btnHeat" title="Heatmap ein/aus">🔥</button>
+        <button class="map-fab toggled" id="btnFollow" title="Zentrieren und verfolgen">&#9678;</button>
+      </div>
     </div>
     <div class="actionbar">
       <div class="counter-strip">
-        <span>Heute eingeworfen: <b id="cntToday">0</b></span>
-        <span>Offene Tour: <b id="cntSession">0</b> Flyer</span>
+        <span>Heute: <b id="cntToday">0</b> Flyer</span>
+        <span id="tourStrip">Keine aktive Tour</span>
       </div>
       <div class="btn-row">
         <div class="qty">
@@ -238,14 +188,24 @@
       </div>
       <div class="small-row">
         <button class="smallbtn" id="btnUndo" disabled>↩ Rückgängig</button>
-        <button class="smallbtn" id="btnAuto">⚡ Auto-Pin: aus</button>
-        <button class="smallbtn" id="btnTour">🏁 Tour abschließen</button>
+        <button class="smallbtn" id="btnBackfill">📍 Nachtragen</button>
+        <button class="smallbtn" id="btnTour">▶ Tour starten</button>
       </div>
     </div>
   </div>
 
-  <!-- ===== Abgegeben (persönlich übergebene Flyer) ===== -->
+  <!-- ===== Bestand: Bestellungen + Abgegeben ===== -->
   <div id="view-give">
+    <div class="chart-card" style="margin-bottom:14px">
+      <div class="section-title" style="margin:2px 0 10px">Bestellungen (gedruckte Flyer)</div>
+      <div id="ordSummary" style="font-size:13px;font-weight:600;color:var(--muted);margin-bottom:12px"></div>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="field"><label for="ordN">Anzahl</label><input id="ordN" type="number" min="1" inputmode="numeric" placeholder="z. B. 5000"></div>
+        <div class="field"><label for="ordDate">Datum</label><input id="ordDate" type="date"></div>
+      </div>
+      <button class="give-save" id="ordSave">＋ Bestellung speichern</button>
+      <div id="ordList" style="margin-top:12px"></div>
+    </div>
     <div class="chart-card">
       <div class="section-title" style="margin:2px 0 10px">Flyer persönlich abgegeben</div>
       <div class="form-grid">
@@ -278,25 +238,37 @@
   </div>
 </div>
 
-<!-- Tour abschließen -->
+<!-- Tour beenden -->
 <div class="overlay hidden" id="tourOverlay">
   <div class="modal">
-    <h2>Tour abschließen</h2>
-    <p>Wie viele Flyer hast du auf dieser Tour verteilt? Vorausgefüllt ist die Flyer-Summe deiner „Eingeworfen“-Pins – du kannst die Zahl noch anpassen.</p>
+    <h2>Tour beenden</h2>
+    <div id="tourStats"></div>
+    <p style="margin:12px 0 8px">Wie viele Flyer hast du wirklich verteilt? (vorausgefüllt: Summe deiner Pins)</p>
     <input type="number" id="tourFlyers" min="0" step="1" inputmode="numeric">
-    <div class="hint" id="tourHint"></div>
     <div class="modal-btns">
-      <button class="btn-secondary" id="tourCancel">Abbrechen</button>
-      <button class="btn-primary" id="tourSave">Speichern</button>
+      <button class="btn-secondary" id="tourCancel">Weiter sammeln</button>
+      <button class="btn-primary" id="tourSave">Tour speichern</button>
     </div>
   </div>
 </div>
 
-<!-- Einrichtung: Firebase-Adresse -->
+<!-- Tour-Detail -->
+<div class="overlay hidden" id="detailOverlay">
+  <div class="modal">
+    <h2 id="detailTitle">Tour</h2>
+    <div id="detailBody"></div>
+    <div class="modal-btns">
+      <button class="btn-secondary" id="detailMap">Auf Karte zeigen</button>
+      <button class="btn-primary" id="detailClose">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Einrichtung -->
 <div class="overlay hidden" id="setupOverlay">
   <div class="modal">
     <h2>Einrichtung</h2>
-    <p>Füge hier die Adresse eurer Firebase Realtime Database ein (siehe Anleitung, Schritt&nbsp;1). Sie wird auf diesem Gerät gespeichert – das machst du nur einmal.</p>
+    <p>Füge hier die Adresse eurer Firebase Realtime Database ein (siehe Anleitung). Sie wird auf diesem Gerät gespeichert – das machst du nur einmal.</p>
     <input type="url" id="dbInput" placeholder="https://…firebasedatabase.app" autocomplete="off"
       style="width:100%;font-size:13.5px;font-weight:600;padding:13px 12px;border:2px solid var(--line);border-radius:12px;font-family:inherit;background:var(--paper);color:var(--ink)">
     <div class="hint" id="setupErr" style="min-height:17px;text-align:left"></div>
@@ -312,23 +284,30 @@
 
 /* ================= Konstanten & Zustand ================= */
 const PEOPLE = {
-  rico: { name:"Rico", color:"#1F5FD0", soft:"#E3ECFB" },
-  susi: { name:"Susi", color:"#D03282", soft:"#FAE4F0" }
+  rico: { name:"Rico", color:"#1F5FD0" },
+  susi: { name:"Susi", color:"#D03282" }
 };
-const AUTO_PIN_DIST = 50;      // Meter
-const COOLDOWN_S    = 5;       // Sekunden Sperre nach manuellem Pin
-const SYNC_EVERY_MS = 25000;   // Hintergrund-Sync
+const COOLDOWN_S    = 5;
+const SYNC_EVERY_MS = 25000;
+const TRACK_MIN_M   = 12;      // Mindestabstand für neuen Track-Punkt
+const PRESENCE_MAX  = 180000;  // 3 min: so lange gilt die Live-Position des anderen
 
-let me = null;                 // "rico" | "susi"
+let me = null;
 let myPos = null, myAcc = null;
-let data = { pins:{rico:[],susi:[]}, tours:{rico:[],susi:[]} };
-let dirty = { pins:false, tours:false };
-let session = [];              // IDs eigener Pins seit letztem Tour-Abschluss (nur diese Sitzung)
+let data = { pins:{rico:[],susi:[]}, tours:{rico:[],susi:[]}, tracks:{rico:{},susi:{}} };
+let handouts = {};
+let orders = {};
+let stock = { printed:0 }; // nur noch für die Übernahme alter Daten
+let dirty = { pins:false, tours:false, tracks:false };
+let pendingH = [];
+let session = [];              // eigene Pin-IDs dieser Browser-Sitzung (für Rückgängig)
+let activeTour = null;         // {id, startTs} – überlebt Neuladen via localStorage
 let cooldownUntil = 0, cooldownIv = null;
-let autoPin = false, lastPinPos = null;
-let follow = true;
-let map, pinLayer, meMarker, accCircle;
-let saving = false;
+let backfill = false;
+let follow = true, progMove = false, firstFix = true;
+let heatOn = false;
+let map, pinLayer, trackLayer, heatLayer = null, meMarker = null, accCircle = null, otherMarker = null;
+let saving = false, flushingH = false, loaded = false;
 
 const $ = id => document.getElementById(id);
 const other = () => me === "rico" ? "susi" : "rico";
@@ -340,27 +319,44 @@ function toast(msg){
   t.textContent = msg;
   t.classList.add("show");
   clearTimeout(t._tm);
-  t._tm = setTimeout(()=>t.classList.remove("show"), 1800);
+  t._tm = setTimeout(()=>t.classList.remove("show"), 2000);
 }
 function vibrate(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(e){} }
 function setSync(state, text){
-  const el = $("sync");
-  el.className = "sync " + state;
+  $("sync").className = "sync " + state;
   $("syncText").textContent = text;
 }
 function distM(a,b){
   const R=6371000, toR=Math.PI/180;
   const dLat=(b.lat-a.lat)*toR, dLng=(b.lng-a.lng)*toR;
-  const s=Math.sin(dLat/2)**2 + Math.cos(a.lat*toR)*Math.cos(b.lat*toR)*Math.sin(dLng/2)**2;
+  const s=Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(a.lat*toR)*Math.cos(b.lat*toR)*Math.sin(dLng/2)*Math.sin(dLng/2);
   return 2*R*Math.asin(Math.sqrt(s));
 }
 function dayKey(ts){
   const d=new Date(ts);
   return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 }
-function fmtDay(key){ const [y,m,d]=key.split("-"); return d+"."+m+"."; }
+function fmtDay(key){ const p=key.split("-"); return p[2]+"."+p[1]+"."; }
+function fmtDayFull(key){ const p=key.split("-"); return p[2]+"."+p[1]+"."+p[0]; }
 function fmtTime(ts){ return new Date(ts).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}); }
+function fmtClock(ts){ return new Date(ts).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}); }
+function fmtDur(ms){
+  if(ms == null) return "–";
+  const m = Math.round(ms/60000);
+  if(m < 60) return m + " min";
+  return Math.floor(m/60) + " h " + (m%60) + " min";
+}
+function fmtDist(m){
+  if(!m || m < 1) return "–";
+  return m < 1000 ? Math.round(m) + " m" : (m/1000).toFixed(2).replace(".",",") + " km";
+}
 function esc(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function pinFly(p){ return p.t==="f" ? (p.n||1) : 0; }
+function ageDays(ts){
+  const t = new Date(); t.setHours(0,0,0,0);
+  const d = new Date(ts); d.setHours(0,0,0,0);
+  return Math.round((t - d) / 86400000);
+}
 
 /* ================= Speicher (Firebase Realtime Database) ================= */
 let dbUrl = null;
@@ -373,7 +369,7 @@ function normalizeDb(u){
 async function dbGet(key){
   const r = await fetch(dbUrl + "/" + key + ".json", {cache:"no-store"});
   if(!r.ok) throw new Error("HTTP " + r.status);
-  return await r.json(); // null, wenn der Schlüssel noch nicht existiert
+  return await r.json();
 }
 async function dbSet(key, val){
   const r = await fetch(dbUrl + "/" + key + ".json", {
@@ -385,97 +381,128 @@ async function dbDelete(key){
   const r = await fetch(dbUrl + "/" + key + ".json", {method:"DELETE"});
   if(!r.ok) throw new Error("HTTP " + r.status);
 }
-async function loadKey(key, fallback){
-  try{
-    const v = await dbGet(key);
-    return Array.isArray(v) ? v : fallback;
-  }catch(e){ return fallback; }
+async function loadArr(key, fallback){
+  try{ const v = await dbGet(key); return Array.isArray(v) ? v : fallback; }catch(e){ return fallback; }
+}
+async function loadObj(key, fallback){
+  try{ const v = await dbGet(key); return (v && typeof v==="object" && !Array.isArray(v)) ? v : fallback; }catch(e){ return fallback; }
 }
 async function loadAll(){
   setSync("busy","Lädt …");
-  const [pr,ps,tr,ts] = await Promise.all([
-    loadKey("pins-rico",[]), loadKey("pins-susi",[]),
-    loadKey("tours-rico",[]), loadKey("tours-susi",[]),
-    loadHandouts()
+  const res = await Promise.all([
+    loadArr("pins-rico",[]), loadArr("pins-susi",[]),
+    loadArr("tours-rico",[]), loadArr("tours-susi",[]),
+    loadObj("tracks-rico",{}), loadObj("tracks-susi",{}),
+    loadObj("handouts",{}), loadObj("stock",{printed:0}), loadObj("orders",{})
   ]);
-  data.pins.rico=pr; data.pins.susi=ps; data.tours.rico=tr; data.tours.susi=ts;
+  data.pins.rico=res[0]; data.pins.susi=res[1];
+  data.tours.rico=res[2]; data.tours.susi=res[3];
+  data.tracks.rico=res[4]; data.tracks.susi=res[5];
+  handouts=res[6]; stock=res[7]; orders=res[8];
+  applyPendingH();
+  // Alte Einzelbestand-Angabe einmalig als Bestellung übernehmen (idempotent über feste ID)
+  if(Object.keys(orders).length===0 && stock && stock.printed > 0){
+    const rec = { n: stock.printed, day: dayKey(Date.now()), ts: Date.now() };
+    orders["importstock"] = rec;
+    pendingH.push({path:"orders", op:"set", id:"importstock", rec:rec});
+    flushH();
+  }
+  loaded = true;
   setSync("ok","Synchronisiert");
   renderAll();
 }
 async function refreshOthers(showToast){
-  if(!me) return;
+  if(!me || !dbUrl) return;
   const o = other();
   setSync("busy","Aktualisiere …");
-  data.pins[o]  = await loadKey("pins-"+o,  data.pins[o]);
-  data.tours[o] = await loadKey("tours-"+o, data.tours[o]);
-  await loadHandouts();
-  const pending = dirty.pins || dirty.tours || pendingH.length > 0;
+  data.pins[o]   = await loadArr("pins-"+o,  data.pins[o]);
+  data.tours[o]  = await loadArr("tours-"+o, data.tours[o]);
+  data.tracks[o] = await loadObj("tracks-"+o, data.tracks[o]);
+  handouts = await loadObj("handouts", handouts);
+  orders = await loadObj("orders", orders);
+  applyPendingH();
+  await updatePresence();
+  const pending = dirty.pins || dirty.tours || dirty.tracks || pendingH.length > 0;
   setSync(pending ? "off" : "ok", pending ? "Offline – sende später" : "Synchronisiert");
   renderAll();
   if(showToast) toast("Aktualisiert ✓");
 }
-async function persist(kind){ // kind: "pins" | "tours"
-  if(!me || saving) { dirty[kind]=true; return; }
+async function persist(kind){ // "pins" | "tours" | "tracks"
+  if(!me || !dbUrl){ dirty[kind]=true; return; }
+  if(saving){ dirty[kind]=true; return; }
   saving = true;
   setSync("busy","Speichert …");
-  dirty[kind] = false;                                  // Änderungen ab jetzt setzen dirty erneut
-  const payload = data[kind][me].slice();              // Schnappschuss vor dem Senden
+  dirty[kind] = false;
+  const payload = JSON.parse(JSON.stringify(data[kind][me]));
   try{
     await dbSet(kind+"-"+me, payload);
-    if(!dirty.pins && !dirty.tours) setSync("ok","Synchronisiert");
+    if(!dirty.pins && !dirty.tours && !dirty.tracks && pendingH.length===0) setSync("ok","Synchronisiert");
   }catch(e){
     dirty[kind] = true;
     setSync("off","Offline – sende später");
   }
   saving = false;
-  // Falls währenddessen erneut Änderungen kamen oder der andere Typ dirty ist:
-  if(dirty.pins)  { const k="pins";  setTimeout(()=>persist(k), 500); }
-  else if(dirty.tours) { const k="tours"; setTimeout(()=>persist(k), 500); }
+  if(dirty.pins) setTimeout(()=>persist("pins"), 500);
+  else if(dirty.tours) setTimeout(()=>persist("tours"), 500);
+  else if(dirty.tracks) setTimeout(()=>persist("tracks"), 500);
 }
 function markDirtyAndPersist(kind){ dirty[kind]=true; persist(kind); }
 
-/* Hintergrund: dirty nachsenden + Daten des anderen ziehen */
 setInterval(()=>{
+  if(!dbUrl) return;
   if(dirty.pins) persist("pins");
   if(dirty.tours) persist("tours");
+  if(dirty.tracks) persist("tracks");
   if(pendingH.length) flushH();
+  sendPresence();
   refreshOthers(false);
 }, SYNC_EVERY_MS);
 document.addEventListener("visibilitychange", ()=>{
-  if(document.visibilityState==="visible") refreshOthers(false);
+  if(document.visibilityState==="visible" && dbUrl) refreshOthers(false);
 });
 
-/* ================= Abgegeben (Name + Anzahl + Datum, ohne Koordinaten) ================= */
-let handouts = {};       // id -> {name, n, day, ts}
-let pendingH = [];       // noch nicht gesendete Operationen
-function applyPendingH(){
-  for(const op of pendingH){
-    if(op.op === "set") handouts[op.id] = op.rec;
-    else delete handouts[op.id];
+/* ================= Live-Position des anderen ================= */
+async function sendPresence(){
+  if(!me || !myPos || !dbUrl) return;
+  try{ await dbSet("presence-"+me, {lat:+myPos.lat.toFixed(6), lng:+myPos.lng.toFixed(6), ts:Date.now()}); }catch(e){}
+}
+async function updatePresence(){
+  if(!me) return;
+  let p = null;
+  try{ p = await dbGet("presence-"+other()); }catch(e){}
+  const fresh = p && p.ts && (Date.now() - p.ts) < PRESENCE_MAX;
+  if(fresh){
+    const col = PEOPLE[other()].color;
+    if(!otherMarker){
+      otherMarker = L.circleMarker([p.lat,p.lng],{radius:9,color:"#fff",weight:3,fillColor:col,fillOpacity:1})
+        .bindTooltip(PEOPLE[other()].name,{permanent:true,direction:"top",offset:[0,-10],className:"presence-label"})
+        .addTo(map);
+    }else otherMarker.setLatLng([p.lat,p.lng]);
+  }else if(otherMarker){
+    map.removeLayer(otherMarker); otherMarker = null;
   }
 }
-async function loadHandouts(){
-  try{
-    const v = await dbGet("handouts");
-    handouts = (v && typeof v === "object" && !Array.isArray(v)) ? v : {};
-  }catch(e){ /* lokalen Stand behalten */ }
-  applyPendingH();
+
+/* ================= Abgegeben ================= */
+function applyPendingH(){
+  for(const op of pendingH){
+    const store = op.path === "orders" ? orders : handouts;
+    if(op.op==="set") store[op.id]=op.rec;
+    else delete store[op.id];
+  }
 }
-let flushingH = false;
 async function flushH(){
-  if(flushingH) return;
+  if(flushingH || !dbUrl) return;
   flushingH = true;
   while(pendingH.length){
     const op = pendingH[0];
     try{
-      if(op.op === "set") await dbSet("handouts/" + op.id, op.rec);
-      else await dbDelete("handouts/" + op.id);
+      const path = op.path || "handouts";
+      if(op.op==="set") await dbSet(path+"/"+op.id, op.rec);
+      else await dbDelete(path+"/"+op.id);
       pendingH.shift();
-      if(!dirty.pins && !dirty.tours && pendingH.length === 0) setSync("ok","Synchronisiert");
-    }catch(e){
-      setSync("off","Offline – sende später");
-      break;
-    }
+      if(!dirty.pins && !dirty.tours && !dirty.tracks && pendingH.length===0) setSync("ok","Synchronisiert");
+    }catch(e){ setSync("off","Offline – sende später"); break; }
   }
   flushingH = false;
 }
@@ -487,33 +514,79 @@ function addHandout(){
   const id = uid();
   const rec = { name:name, n:n, day:day, ts:Date.now() };
   handouts[id] = rec;
-  pendingH.push({op:"set", id:id, rec:rec});
+  pendingH.push({path:"handouts", op:"set", id:id, rec:rec});
   flushH();
   $("giveName").value = ""; $("giveN").value = 1;
   renderGive();
-  toast("Gespeichert: " + n + " Flyer an " + name + " ✓");
+  toast("Gespeichert: "+n+" Flyer an "+name+" ✓");
 }
 window.__delHand = function(id){
   if(!handouts[id]) return;
   delete handouts[id];
-  pendingH.push({op:"del", id:id});
+  pendingH.push({path:"handouts", op:"del", id:id});
   flushH();
   renderGive();
   toast("Eintrag gelöscht");
 };
-function fmtDayFull(key){ const p=key.split("-"); return p[2]+"."+p[1]+"."+p[0]; }
 function renderGive(){
   if(!$("giveDate").value) $("giveDate").value = dayKey(Date.now());
-  const list = Object.entries(handouts)
-    .map(([id,h])=>({id:id, name:h.name, n:h.n, day:h.day, ts:h.ts}))
+  const list = Object.keys(handouts).map(k=>({id:k, name:handouts[k].name, n:handouts[k].n, day:handouts[k].day, ts:handouts[k].ts}))
     .sort((a,b)=> a.day===b.day ? b.ts-a.ts : (a.day<b.day?1:-1));
   const total = list.reduce((s,h)=>s+(h.n||0),0);
-  $("giveTotal").textContent = list.length ? "· " + total + " Flyer gesamt" : "";
-  $("giveList").innerHTML = list.length === 0
+  $("giveTotal").textContent = list.length ? "· "+total+" Flyer gesamt" : "";
+  $("giveList").innerHTML = list.length===0
     ? '<div class="empty">Noch keine Einträge. Trage oben ein, wem du Flyer gegeben hast – z. B. einem Laden oder Bekannten.</div>'
-    : '<table><tr><th>An wen</th><th>Datum</th><th>Flyer</th><th></th></tr>' +
-      list.map(h=>'<tr><td style="font-weight:600">'+esc(h.name)+'</td><td>'+fmtDayFull(h.day)+'</td><td style="text-align:right;font-weight:700">'+h.n+'</td><td style="text-align:right"><button class="give-del" onclick="window.__delHand(\''+h.id+'\')">✕</button></td></tr>').join("") +
+    : '<table><tr><th>An wen</th><th>Datum</th><th>Flyer</th><th></th></tr>'+
+      list.map(h=>'<tr><td style="font-weight:600">'+esc(h.name)+'</td><td>'+fmtDayFull(h.day)+'</td><td style="text-align:right;font-weight:700">'+h.n+'</td><td style="text-align:right"><button class="give-del" onclick="window.__delHand(\''+h.id+'\')">✕</button></td></tr>').join("")+
       "</table>";
+}
+
+/* ================= Bestellungen ================= */
+function orderedFlyers(){ let s=0; for(const k in orders) s += (orders[k].n||0); return s; }
+function usedFlyers(){
+  let tourFly=0; const savedIds=new Set();
+  for(const p of ["rico","susi"]) for(const t of data.tours[p]){ tourFly += t.flyers; savedIds.add(t.id); }
+  let hFly=0; for(const k in handouts) hFly += (handouts[k].n||0);
+  let loose=0;
+  for(const p of ["rico","susi"]) for(const pin of data.pins[p])
+    if(pin.t==="f" && (!pin.tour || !savedIds.has(pin.tour))) loose += (pin.n||1);
+  return { used: tourFly+hFly+loose, tourFly:tourFly, hFly:hFly, loose:loose };
+}
+function addOrder(){
+  const n = parseInt($("ordN").value,10) || 0;
+  if(n < 1){ toast("Bitte eine Anzahl eingeben"); $("ordN").focus(); return; }
+  const day = $("ordDate").value || dayKey(Date.now());
+  const id = uid();
+  const rec = { n:n, day:day, ts:Date.now() };
+  orders[id] = rec;
+  pendingH.push({path:"orders", op:"set", id:id, rec:rec});
+  flushH();
+  $("ordN").value = "";
+  renderOrders();
+  toast("Bestellung gespeichert: "+n+" Flyer ✓");
+}
+window.__delOrd = function(id){
+  if(!orders[id]) return;
+  delete orders[id];
+  pendingH.push({path:"orders", op:"del", id:id});
+  flushH();
+  renderOrders();
+  toast("Bestellung gelöscht");
+};
+function renderOrders(){
+  if(!$("ordDate").value) $("ordDate").value = dayKey(Date.now());
+  const list = Object.keys(orders).map(k=>({id:k, n:orders[k].n, day:orders[k].day, ts:orders[k].ts}))
+    .sort((a,b)=> a.day===b.day ? b.ts-a.ts : (a.day<b.day?1:-1));
+  const ordered = orderedFlyers();
+  const uf = usedFlyers();
+  const left = ordered - uf.used;
+  $("ordSummary").innerHTML = ordered > 0
+    ? 'Bestellt: <b style="color:var(--ink)">'+ordered+'</b> · Verteilt: <b style="color:var(--ink)">'+uf.used+'</b> · Übrig: <b style="color:'+(left<0?'#C0392B':'var(--ok)')+';font-size:15px">'+left+'</b>'
+    : 'Noch keine Bestellung eingetragen.';
+  $("ordList").innerHTML = list.length === 0 ? "" :
+    '<table><tr><th>Datum</th><th>Anzahl</th><th></th></tr>'+
+    list.map(o=>'<tr><td>'+fmtDayFull(o.day)+'</td><td style="text-align:right;font-weight:700">'+o.n+'</td><td style="text-align:right"><button class="give-del" onclick="window.__delOrd(\''+o.id+'\')">✕</button></td></tr>').join("")+
+    "</table>";
 }
 
 /* ================= Karte ================= */
@@ -521,43 +594,84 @@ function renderAll(){
   renderPins();
   updateCounters();
   renderGive();
+  renderOrders();
   if($("view-stats").style.display !== "none") renderStats();
 }
 function initMap(){
   map = L.map("map", { zoomControl:false, attributionControl:true });
-  map.setView([51.16, 10.45], 6); // Deutschland, bis GPS-Fix kommt
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19, attribution: "© OpenStreetMap"
-  }).addTo(map);
+  progMove = true;
+  map.setView([51.16, 10.45], 6);
+  progMove = false;
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:19, attribution:"© OpenStreetMap" }).addTo(map);
+  trackLayer = L.layerGroup().addTo(map);
   pinLayer = L.layerGroup().addTo(map);
-  map.on("dragstart", ()=>{ follow=false; });
-  $("btnLocate").onclick = ()=>{
-    follow = true;
-    if(myPos) map.setView([myPos.lat,myPos.lng], Math.max(map.getZoom(),17));
+  map.on("dragstart", ()=>{ if(!progMove) setFollow(false); });
+  map.on("zoomstart", ()=>{ if(!progMove) setFollow(false); });
+  map.on("click", onMapClick);
+}
+function setFollow(on){
+  follow = on;
+  $("btnFollow").classList.toggle("toggled", on);
+  if(on && myPos) centerOnMe();
+}
+function centerOnMe(){
+  if(!myPos) return;
+  progMove = true;
+  map.setView([myPos.lat,myPos.lng], Math.max(map.getZoom(), 16), {animate:true});
+  setTimeout(()=>{ progMove = false; }, 450);
+}
+function pinStyle(pin, person){
+  const col = PEOPLE[person].color;
+  const isToday = ageDays(pin.ts) === 0;
+  return {
+    radius: isToday ? 7 : 6,
+    color: col, weight: 2,
+    opacity: isToday ? 1 : 0.65,
+    fillColor: pin.t==="s" ? "#98A3A0" : col,
+    fillOpacity: isToday ? 0.9 : 0.5
   };
 }
 function renderPins(){
   pinLayer.clearLayers();
+  trackLayer.clearLayers();
+  // GPS-Tracks (feine Linien)
   for(const p of ["rico","susi"]){
-    const col = PEOPLE[p].color;
+    const trs = data.tracks[p] || {};
+    for(const tid of Object.keys(trs)){
+      const pts = trs[tid];
+      if(Array.isArray(pts) && pts.length > 1)
+        L.polyline(pts, {color:PEOPLE[p].color, weight:3, opacity:0.45, lineJoin:"round"}).addTo(trackLayer);
+    }
+  }
+  // Pins
+  const heatPts = [];
+  for(const p of ["rico","susi"]){
     for(const pin of data.pins[p]){
-      const skipped = pin.t === "s";
-      const m = L.circleMarker([pin.lat,pin.lng],{
-        radius:7,
-        color: col, weight:2,
-        fillColor: skipped ? "#98A3A0" : col,
-        fillOpacity: 0.9
-      });
+      const m = L.circleMarker([pin.lat,pin.lng], pinStyle(pin, p));
       const own = p === me;
+      const col = PEOPLE[p].color;
       m.bindPopup(
         '<b style="color:'+col+'">'+PEOPLE[p].name+'</b> · '+
-        (skipped ? "Übersprungen" : "Eingeworfen: "+(pin.n||1)+((pin.n||1)===1?" Flyer":" Flyer")) + (pin.a ? " (auto)" : "") +
-        "<br>" + fmtTime(pin.ts) +
+        (pin.t==="s" ? "Übersprungen" : "Eingeworfen: "+(pin.n||1)+" Flyer") +
+        (pin.m ? " (nachgetragen)" : "") + (pin.a ? " (auto)" : "") +
+        "<br>" + fmtTime(pin.ts) + " Uhr" +
+        (pin.tour ? "<br>Tour: " + tourLabel(p, pin.tour) : "") +
         (own ? '<br><button class="pop-del" onclick="window.__delPin(\''+pin.id+'\')">Pin löschen</button>' : "")
       );
       m.addTo(pinLayer);
+      if(pin.t==="f") heatPts.push([pin.lat, pin.lng, Math.min(2, 0.6 + (pin.n||1)*0.3)]);
     }
   }
+  // Heatmap
+  if(heatLayer){ map.removeLayer(heatLayer); heatLayer = null; }
+  if(heatOn && typeof L.heatLayer === "function" && heatPts.length){
+    heatLayer = L.heatLayer(heatPts, {radius:22, blur:16, maxZoom:18, minOpacity:0.25}).addTo(map);
+  }
+}
+function tourLabel(person, tourId){
+  const t = (data.tours[person]||[]).find(x=>x.id===tourId);
+  if(t) return fmtDayFull(dayKey(t.startTs || t.ts));
+  return activeTour && tourId===activeTour.id ? "läuft gerade" : "–";
 }
 window.__delPin = function(id){
   const arr = data.pins[me];
@@ -571,17 +685,46 @@ window.__delPin = function(id){
   toast("Pin gelöscht");
 };
 
+/* ================= Nachtrag-Modus ================= */
+function onMapClick(e){
+  if(!backfill || !me) return;
+  const lat = +e.latlng.lat.toFixed(6), lng = +e.latlng.lng.toFixed(6);
+  const n = getQty();
+  const html =
+    '<b>Pin nachtragen?</b><br>'+
+    '<button class="pop-add" style="background:'+PEOPLE[me].color+'" onclick="window.__bf('+lat+','+lng+',\'f\')">📬 Eingeworfen ('+n+')</button>'+
+    '<button class="pop-add" style="background:#98A3A0" onclick="window.__bf('+lat+','+lng+',\'s\')">🚫 Übersprungen</button>';
+  L.popup().setLatLng(e.latlng).setContent(html).openOn(map);
+}
+window.__bf = function(lat, lng, type){
+  map.closePopup();
+  const n = type==="f" ? getQty() : 1;
+  const pin = { id:uid(), lat:lat, lng:lng, t:type, n:n, m:true, ts:Date.now() };
+  if(activeTour) pin.tour = activeTour.id;
+  data.pins[me].push(pin);
+  session.push(pin.id);
+  if(type==="f") $("qVal").value = 1;
+  renderPins(); updateCounters();
+  markDirtyAndPersist("pins");
+  vibrate(60);
+  toast(type==="f" ? "Nachgetragen: "+n+" Flyer ✓" : "Nachgetragen: Übersprungen ✓");
+};
+function toggleBackfill(){
+  backfill = !backfill;
+  $("btnBackfill").classList.toggle("toggled", backfill);
+  $("bfBanner").style.display = backfill ? "block" : "none";
+  $("map").classList.toggle("backfill", backfill);
+  if(backfill){ setFollow(false); toast("Nachtrag-Modus: auf die Karte tippen"); }
+}
+
 /* ================= GPS ================= */
 function startGPS(){
   if(!navigator.geolocation){
     showGpsBanner("Dieses Gerät unterstützt kein GPS im Browser.");
     return;
   }
-  navigator.geolocation.watchPosition(onPos, onPosErr, {
-    enableHighAccuracy:true, maximumAge:2000, timeout:15000
-  });
+  navigator.geolocation.watchPosition(onPos, onPosErr, { enableHighAccuracy:true, maximumAge:2000, timeout:15000 });
 }
-let firstFix = true;
 function onPos(ev){
   hideGpsBanner();
   myPos = { lat: ev.coords.latitude, lng: ev.coords.longitude };
@@ -594,14 +737,27 @@ function onPos(ev){
     meMarker.setLatLng([myPos.lat,myPos.lng]);
     accCircle.setLatLng([myPos.lat,myPos.lng]).setRadius(myAcc);
   }
-  if(firstFix){ map.setView([myPos.lat,myPos.lng], 17); firstFix=false; }
-  else if(follow){ map.panTo([myPos.lat,myPos.lng], {animate:true}); }
-  updateButtons();
-  // Auto-Pin
-  if(autoPin && me){
-    if(!lastPinPos) lastPinPos = {...myPos};
-    else if(distM(lastPinPos,myPos) >= AUTO_PIN_DIST) addPin("f", true);
+  if(firstFix){
+    progMove = true;
+    map.setView([myPos.lat,myPos.lng], 17);
+    setTimeout(()=>{ progMove = false; }, 450);
+    firstFix = false;
+  }else if(follow){
+    progMove = true;
+    map.panTo([myPos.lat,myPos.lng], {animate:true});
+    setTimeout(()=>{ progMove = false; }, 350);
   }
+  // Track aufzeichnen (nur während aktiver Tour)
+  if(activeTour && me && myAcc < 60){
+    const trs = data.tracks[me][activeTour.id] || (data.tracks[me][activeTour.id] = []);
+    const last = trs.length ? {lat:trs[trs.length-1][0], lng:trs[trs.length-1][1]} : null;
+    if(!last || distM(last, myPos) >= TRACK_MIN_M){
+      trs.push([+myPos.lat.toFixed(6), +myPos.lng.toFixed(6)]);
+      dirty.tracks = true; // wird vom Hintergrund-Sync gesendet
+      if(trs.length % 5 === 0) renderPins();
+    }
+  }
+  updateButtons();
 }
 function onPosErr(err){
   if(err.code === 1) showGpsBanner("Standort-Zugriff verweigert. Bitte in den Browser-Einstellungen erlauben und neu laden.");
@@ -612,34 +768,29 @@ function showGpsBanner(msg){ const b=$("gpsBanner"); b.textContent=msg; b.style.
 function hideGpsBanner(){ $("gpsBanner").style.display="none"; }
 
 /* ================= Pins setzen ================= */
-function getQty(){
-  return Math.min(999, Math.max(1, parseInt($("qVal").value,10) || 1));
-}
-function addPin(type, isAuto){
+function getQty(){ return Math.min(999, Math.max(1, parseInt($("qVal").value,10) || 1)); }
+function addPin(type){
   if(!me || !myPos) return;
   const now = Date.now();
-  if(!isAuto && now < cooldownUntil) return;
-  const n = (type === "f" && !isAuto) ? getQty() : 1;
-  const pin = { id:uid(), lat:+myPos.lat.toFixed(6), lng:+myPos.lng.toFixed(6), t:type, a:!!isAuto, n:n, ts:now };
+  if(now < cooldownUntil) return;
+  const n = type==="f" ? getQty() : 1;
+  const pin = { id:uid(), lat:+myPos.lat.toFixed(6), lng:+myPos.lng.toFixed(6), t:type, n:n, ts:now };
+  if(activeTour) pin.tour = activeTour.id;
   data.pins[me].push(pin);
   session.push(pin.id);
-  lastPinPos = { lat:pin.lat, lng:pin.lng };
-  if(type === "f" && !isAuto) $("qVal").value = 1;   // nach dem Speichern zurück auf 1
+  if(type==="f") $("qVal").value = 1;
   renderPins(); updateCounters();
   markDirtyAndPersist("pins");
-  vibrate(isAuto ? 40 : 90);
-  toast(type==="f"
-    ? (isAuto ? "Auto-Pin gesetzt ✓" : (n>1 ? n+" Flyer gespeichert ✓" : "Eingeworfen gespeichert ✓"))
-    : "Übersprungen gespeichert ✓");
-  if(!isAuto) startCooldown();
+  vibrate(90);
+  toast(type==="f" ? (n>1 ? n+" Flyer gespeichert ✓" : "Eingeworfen gespeichert ✓") : "Übersprungen gespeichert ✓");
+  startCooldown();
 }
 function startCooldown(){
   cooldownUntil = Date.now() + COOLDOWN_S*1000;
   updateButtons();
   clearInterval(cooldownIv);
   cooldownIv = setInterval(()=>{
-    const left = Math.ceil((cooldownUntil - Date.now())/1000);
-    if(left <= 0){ clearInterval(cooldownIv); cooldownIv=null; }
+    if(Date.now() >= cooldownUntil){ clearInterval(cooldownIv); cooldownIv=null; }
     updateButtons();
   }, 250);
 }
@@ -664,61 +815,171 @@ function undo(){
   toast("Letzter Pin entfernt ↩");
 }
 
+/* ================= Touren ================= */
+function tourPins(person, tourId){
+  return data.pins[person].filter(p=>p.tour === tourId);
+}
+function calcTour(person, tourId, startTs, endTs){
+  const pinsOf = tourPins(person, tourId);
+  const f = pinsOf.filter(p=>p.t==="f");
+  const fly = f.reduce((s,p)=>s+pinFly(p),0);
+  const skip = pinsOf.length - f.length;
+  const dur = (startTs && endTs) ? Math.max(0, endTs - startTs) : null;
+  let dist = 0;
+  const tr = (data.tracks[person]||{})[tourId];
+  if(Array.isArray(tr) && tr.length > 1){
+    for(let i=1;i<tr.length;i++) dist += distM({lat:tr[i-1][0],lng:tr[i-1][1]},{lat:tr[i][0],lng:tr[i][1]});
+  }else{
+    const sorted = f.slice().sort((a,b)=>a.ts-b.ts);
+    for(let i=1;i<sorted.length;i++) dist += distM(sorted[i-1], sorted[i]);
+  }
+  const mins = dur ? dur/60000 : null;
+  return {
+    pins: f.length, fly: fly, skip: skip, dur: dur, dist: dist,
+    pinsPerMin: (mins && mins > 0.5) ? (f.length/mins) : null,
+    flyPerMin:  (mins && mins > 0.5) ? (fly/mins) : null
+  };
+}
+function statsHTML(s, startTs, endTs){
+  return '<div class="kv"><span>Dauer</span><b>'+fmtDur(s.dur)+(startTs?' ('+fmtClock(startTs)+'–'+(endTs?fmtClock(endTs):'…')+' Uhr)':'')+'</b></div>'+
+    '<div class="kv"><span>Pins „Eingeworfen“</span><b>'+s.pins+'</b></div>'+
+    '<div class="kv"><span>Flyer (laut Pins)</span><b>'+s.fly+'</b></div>'+
+    '<div class="kv"><span>Übersprungen</span><b>'+s.skip+'</b></div>'+
+    '<div class="kv"><span>Strecke (ca.)</span><b>'+fmtDist(s.dist)+'</b></div>'+
+    '<div class="kv"><span>Pins pro Minute</span><b>'+(s.pinsPerMin!=null ? s.pinsPerMin.toFixed(1).replace(".",",") : "–")+'</b></div>'+
+    '<div class="kv"><span>Flyer pro Minute</span><b>'+(s.flyPerMin!=null ? s.flyPerMin.toFixed(1).replace(".",",") : "–")+'</b></div>';
+}
+function saveActiveTourLS(){
+  try{
+    if(activeTour) localStorage.setItem("flyer-activetour", JSON.stringify(activeTour));
+    else localStorage.removeItem("flyer-activetour");
+  }catch(e){}
+}
+function toggleTour(){
+  if(!me) return;
+  if(!activeTour){
+    activeTour = { id: uid(), startTs: Date.now() };
+    saveActiveTourLS();
+    updateTourUI();
+    toast("Tour gestartet ▶ Viel Erfolg!");
+  }else{
+    const s = calcTour(me, activeTour.id, activeTour.startTs, Date.now());
+    $("tourStats").innerHTML = statsHTML(s, activeTour.startTs, Date.now());
+    $("tourFlyers").value = s.fly;
+    $("tourOverlay").classList.remove("hidden");
+  }
+}
+function saveTour(){
+  if(!activeTour) { $("tourOverlay").classList.add("hidden"); return; }
+  const endTs = Date.now();
+  const s = calcTour(me, activeTour.id, activeTour.startTs, endTs);
+  const val = Math.max(0, parseInt($("tourFlyers").value,10) || 0);
+  const tour = {
+    id: activeTour.id, startTs: activeTour.startTs, ts: endTs,
+    pins: s.pins, flyers: val, skip: s.skip, dist: Math.round(s.dist)
+  };
+  data.tours[me].push(tour);
+  activeTour = null;
+  saveActiveTourLS();
+  session = [];
+  $("tourOverlay").classList.add("hidden");
+  updateTourUI(); updateCounters();
+  markDirtyAndPersist("tours");
+  if(dirty.tracks) persist("tracks");
+  toast("Tour gespeichert: "+val+" Flyer 🏁");
+  renderStats();
+}
+function updateTourUI(){
+  $("btnTour").textContent = activeTour ? "🏁 Tour beenden" : "▶ Tour starten";
+  $("btnTour").classList.toggle("toggled", !!activeTour);
+  tickTourStrip();
+}
+function tickTourStrip(){
+  if(!activeTour){ $("tourStrip").textContent = "Keine aktive Tour"; return; }
+  const s = me ? calcTour(me, activeTour.id, activeTour.startTs, Date.now()) : {fly:0};
+  $("tourStrip").innerHTML = 'Tour läuft: <b>'+s.fly+'</b> Flyer · '+fmtDur(Date.now()-activeTour.startTs);
+}
+setInterval(tickTourStrip, 5000);
+
+/* Tour-Detail */
+window.__tourDetail = function(person, id){
+  const t = (data.tours[person]||[]).find(x=>x.id===id);
+  if(!t) return;
+  const s = calcTour(person, id, t.startTs, t.ts);
+  $("detailTitle").innerHTML = '<span style="color:'+PEOPLE[person].color+'">'+PEOPLE[person].name+'</span> · Tour vom '+fmtDayFull(dayKey(t.startTs||t.ts));
+  $("detailBody").innerHTML =
+    '<div class="kv"><span>Flyer (eingetragen)</span><b>'+t.flyers+'</b></div>' +
+    statsHTML(s, t.startTs, t.ts) +
+    (t.migrated ? '<p style="margin-top:10px">Diese Tour wurde beim Update automatisch aus deinen bestehenden Pins erstellt.</p>' : '');
+  $("detailOverlay").classList.remove("hidden");
+  $("detailMap").onclick = ()=>{
+    const pts = tourPins(person, id).map(p=>[p.lat,p.lng]);
+    $("detailOverlay").classList.add("hidden");
+    if(pts.length === 0){ toast("Keine Pins zu dieser Tour gefunden"); return; }
+    showTab("map");
+    setFollow(false);
+    progMove = true;
+    map.fitBounds(L.latLngBounds(pts), {padding:[40,40]});
+    setTimeout(()=>{ progMove = false; }, 600);
+  };
+};
+
+/* ================= Migration alter Daten (einmalig pro Person) ================= */
+function migrate(){
+  if(!me || !loaded) return;
+  let flag = null;
+  try{ flag = localStorage.getItem("flyer-migrated-v3-"+me); }catch(e){}
+  if(flag) return;
+  const untagged = data.pins[me].filter(p=>!p.tour);
+  if(untagged.length > 0){
+    const minTs = Math.min.apply(null, untagged.map(p=>p.ts));
+    const maxTs = Math.max.apply(null, untagged.map(p=>p.ts));
+    let target = null;
+    if(data.tours[me].length > 0){
+      target = data.tours[me][data.tours[me].length-1];           // jüngste vorhandene Tour
+      if(!target.startTs) target.startTs = minTs;
+    }else{
+      target = {
+        id: uid(), startTs: minTs, ts: maxTs,
+        pins: untagged.filter(p=>p.t==="f").length,
+        flyers: untagged.reduce((s,p)=>s+pinFly(p),0),
+        skip: untagged.filter(p=>p.t==="s").length,
+        migrated: true
+      };
+      data.tours[me].push(target);
+    }
+    for(const p of untagged) p.tour = target.id;
+    markDirtyAndPersist("pins");
+    markDirtyAndPersist("tours");
+    toast("Bestehende Pins wurden einer Tour zugeordnet ✓");
+  }
+  try{ localStorage.setItem("flyer-migrated-v3-"+me, "1"); }catch(e){}
+}
+
 /* ================= Zähler ================= */
-function pinFly(p){ return p.t==="f" ? (p.n||1) : 0; }
-function sessionFlyerCount(){
-  const ids = new Set(session);
-  return data.pins[me] ? data.pins[me].reduce((s,p)=>s + (ids.has(p.id) ? pinFly(p) : 0), 0) : 0;
-}
-function sessionPinCount(){
-  const ids = new Set(session);
-  return data.pins[me] ? data.pins[me].filter(p=>ids.has(p.id) && p.t==="f").length : 0;
-}
 function updateCounters(){
   if(!me) return;
   const today = dayKey(Date.now());
   const todayFly = data.pins[me].reduce((s,p)=>s + (dayKey(p.ts)===today ? pinFly(p) : 0), 0);
   $("cntToday").textContent = todayFly;
-  $("cntSession").textContent = sessionFlyerCount();
+  tickTourStrip();
   updateButtons();
-}
-
-/* ================= Tour abschließen ================= */
-function openTour(){
-  const fly = sessionFlyerCount();
-  const pins = sessionPinCount();
-  $("tourFlyers").value = fly;
-  $("tourHint").textContent = fly + " Flyer aus " + pins + (pins===1?" Pin":" Pins") + " in dieser Tour";
-  $("tourOverlay").classList.remove("hidden");
-}
-function saveTour(){
-  const val = Math.max(0, parseInt($("tourFlyers").value,10) || 0);
-  const tour = { id:uid(), ts:Date.now(), pins:sessionPinCount(), flyers:val };
-  data.tours[me].push(tour);
-  session = [];
-  $("tourOverlay").classList.add("hidden");
-  updateCounters(); renderStats();
-  markDirtyAndPersist("tours");
-  toast("Tour gespeichert: "+val+" Flyer 🏁");
 }
 
 /* ================= Statistik ================= */
 function aggregate(){
-  const days = {}; // key -> {rico:{fly,pins},susi:{...}}
-  const tot = { rico:{fly:0,pins:0,skip:0,tours:0}, susi:{fly:0,pins:0,skip:0,tours:0} };
+  const days = {};
+  const tot = { rico:{fly:0,pins:0,pinFly:0,skip:0,tours:0}, susi:{fly:0,pins:0,pinFly:0,skip:0,tours:0} };
   for(const p of ["rico","susi"]){
     for(const t of data.tours[p]){
       tot[p].fly += t.flyers; tot[p].tours++;
-      const k = dayKey(t.ts);
-      days[k] = days[k] || {rico:{fly:0,pins:0},susi:{fly:0,pins:0}};
+      const k = dayKey(t.startTs || t.ts);
+      days[k] = days[k] || {rico:{fly:0},susi:{fly:0}};
       days[k][p].fly += t.flyers;
     }
     for(const pin of data.pins[p]){
-      if(pin.t==="f"){ tot[p].pins++; tot[p].pinFly = (tot[p].pinFly||0) + (pin.n||1); }
+      if(pin.t==="f"){ tot[p].pins++; tot[p].pinFly += (pin.n||1); }
       else tot[p].skip++;
-      const k = dayKey(pin.ts);
-      days[k] = days[k] || {rico:{fly:0,pins:0},susi:{fly:0,pins:0}};
-      if(pin.t==="f") days[k][p].pins += (pin.n||1);
     }
   }
   const keys = Object.keys(days).sort();
@@ -727,7 +988,7 @@ function aggregate(){
 function barChartSVG(keys, days){
   if(keys.length===0) return '<div class="empty">Noch keine Daten – schließe deine erste Tour ab.</div>';
   const W=340, H=170, padB=22, padL=4, padT=14;
-  const shown = keys.slice(-14); // letzte 14 Tage mit Daten
+  const shown = keys.slice(-14);
   const maxV = Math.max(1, ...shown.map(k=>Math.max(days[k].rico.fly, days[k].susi.fly)));
   const groupW = (W-padL*2)/shown.length;
   const barW = Math.min(16, groupW*0.32);
@@ -754,7 +1015,7 @@ function lineChartSVG(keys, days){
   if(keys.length===0) return "";
   const W=340, H=150, padB=22, padL=4, padT=10;
   let cr=0, cs=0;
-  const pts = keys.map(k=>{ cr+=days[k].rico.fly; cs+=days[k].susi.fly; return {k, r:cr, s:cs}; });
+  const pts = keys.map(k=>{ cr+=days[k].rico.fly; cs+=days[k].susi.fly; return {r:cr, s:cs}; });
   const maxV = Math.max(1, cr, cs);
   const x = i => keys.length===1 ? W/2 : padL + (W-padL*2)*(i/(keys.length-1));
   const y = v => (H-padB) - (v/maxV)*(H-padB-padT);
@@ -766,7 +1027,6 @@ function lineChartSVG(keys, days){
   const last = pts[pts.length-1];
   s += '<text x="'+(W-4)+'" y="'+(y(last.r)-4)+'" font-size="10" font-weight="800" text-anchor="end" fill="'+PEOPLE.rico.color+'">'+last.r+'</text>';
   s += '<text x="'+(W-4)+'" y="'+(y(last.s)+12)+'" font-size="10" font-weight="800" text-anchor="end" fill="'+PEOPLE.susi.color+'">'+last.s+'</text>';
-  // X-Beschriftung: erster und letzter Tag
   s += '<text x="'+padL+'" y="'+(H-7)+'" font-size="9" fill="#6B7774">'+fmtDay(keys[0])+'</text>';
   s += '<text x="'+(W-padL)+'" y="'+(H-7)+'" font-size="9" text-anchor="end" fill="#6B7774">'+fmtDay(keys[keys.length-1])+'</text>';
   s += "</svg>";
@@ -778,21 +1038,29 @@ function renderStats(){
   const today = dayKey(Date.now());
   const todayR = days[today] ? days[today].rico.fly : 0;
   const todayS = days[today] ? days[today].susi.fly : 0;
-  const allTours = [...data.tours.rico.map(t=>({...t,p:"rico"})), ...data.tours.susi.map(t=>({...t,p:"susi"}))]
-                   .sort((a,b)=>b.ts-a.ts).slice(0,12);
-  const openHint = me && sessionFlyerCount()>0
-    ? '<div class="empty">Hinweis: Deine offene Tour ('+sessionFlyerCount()+' Flyer) zählt erst nach „Tour abschließen“ in die Flyer-Statistik.</div>' : "";
-
   const hList = Object.keys(handouts).map(k=>handouts[k]);
   const hFly = hList.reduce((s,h)=>s+(h.n||0),0);
+
+  const ordered = orderedFlyers();
+  const uf = usedFlyers();
+  const left = ordered > 0 ? (ordered - uf.used) : null;
+
+  const allTours = [].concat(
+      data.tours.rico.map(t=>({t:t, p:"rico"})),
+      data.tours.susi.map(t=>({t:t, p:"susi"})))
+    .sort((a,b)=>(b.t.startTs||b.t.ts)-(a.t.startTs||a.t.ts)).slice(0,15);
+
+  const openHint = me && activeTour
+    ? '<div class="empty">Hinweis: Deine laufende Tour zählt erst nach „Tour beenden“ in die Flyer-Statistik.</div>' : "";
 
   v.innerHTML =
     '<div class="stat-cards">' +
       '<div class="card rico"><div class="label">Rico · Flyer gesamt</div><div class="big">'+tot.rico.fly+'</div><div class="sub">heute: '+todayR+' · Touren: '+tot.rico.tours+'</div></div>' +
       '<div class="card susi"><div class="label">Susi · Flyer gesamt</div><div class="big">'+tot.susi.fly+'</div><div class="sub">heute: '+todayS+' · Touren: '+tot.susi.tours+'</div></div>' +
-      '<div class="card"><div class="label">Pins „Eingeworfen“</div><div class="big">'+(tot.rico.pins+tot.susi.pins)+'</div><div class="sub">= '+((tot.rico.pinFly||0)+(tot.susi.pinFly||0))+' Flyer · Rico '+tot.rico.pins+' · Susi '+tot.susi.pins+'</div></div>' +
+      '<div class="card"><div class="label">Pins „Eingeworfen“</div><div class="big">'+(tot.rico.pins+tot.susi.pins)+'</div><div class="sub">= '+(tot.rico.pinFly+tot.susi.pinFly)+' Flyer · Rico '+tot.rico.pins+' · Susi '+tot.susi.pins+'</div></div>' +
       '<div class="card"><div class="label">Übersprungen</div><div class="big">'+(tot.rico.skip+tot.susi.skip)+'</div><div class="sub">Rico '+tot.rico.skip+' · Susi '+tot.susi.skip+'</div></div>' +
-      '<div class="card" style="grid-column:1/-1"><div class="label">Persönlich abgegeben</div><div class="big">'+hFly+'</div><div class="sub">'+hList.length+(hList.length===1?' Eintrag':' Einträge')+' · zählt nicht in die Rico/Susi-Werte</div></div>' +
+      '<div class="card"><div class="label">Persönlich abgegeben</div><div class="big">'+hFly+'</div><div class="sub">'+hList.length+(hList.length===1?' Eintrag':' Einträge')+'</div></div>' +
+      '<div class="card"><div class="label">Bestand übrig</div><div class="big"'+(left!=null && left<0 ? ' style="color:#C0392B"' : '')+'>'+(left!=null ? left : "–")+'</div><div class="sub">'+(ordered>0 ? 'von '+ordered+' bestellt · '+uf.used+' verteilt' : 'Bestellung im Tab „Bestand“ eintragen')+'</div></div>' +
     '</div>' +
     openHint +
     '<div class="section-title">Flyer pro Tag</div>' +
@@ -801,11 +1069,11 @@ function renderStats(){
       barChartSVG(keys, days) +
     '</div>' +
     (keys.length ? '<div class="section-title">Gesamt im Zeitverlauf</div><div class="chart-card">'+lineChartSVG(keys, days)+'</div>' : "") +
-    '<div class="section-title">Letzte Touren</div>' +
+    '<div class="section-title">Touren (antippen für Details)</div>' +
     '<div class="chart-card">' +
-      (allTours.length === 0 ? '<div class="empty">Noch keine Touren abgeschlossen.</div>' :
-      '<table><tr><th>Wer</th><th>Wann</th><th>Pins</th><th>Flyer</th></tr>' +
-        allTours.map(t=>'<tr><td style="color:'+PEOPLE[t.p].color+';font-weight:700">'+PEOPLE[t.p].name+'</td><td>'+fmtTime(t.ts)+'</td><td style="text-align:right">'+t.pins+'</td><td style="text-align:right;font-weight:700">'+t.flyers+'</td></tr>').join("") +
+      (allTours.length === 0 ? '<div class="empty">Noch keine Touren gespeichert.</div>' :
+      '<table><tr><th>Wer</th><th>Wann</th><th>Dauer</th><th>Flyer</th></tr>' +
+        allTours.map(x=>'<tr class="rowbtn" onclick="window.__tourDetail(\''+x.p+'\',\''+x.t.id+'\')"><td style="color:'+PEOPLE[x.p].color+';font-weight:700">'+PEOPLE[x.p].name+'</td><td>'+fmtTime(x.t.startTs||x.t.ts)+'</td><td>'+fmtDur(x.t.startTs?(x.t.ts-x.t.startTs):null)+'</td><td style="text-align:right;font-weight:700">'+x.t.flyers+'</td></tr>').join("") +
       "</table>") +
     '</div>' +
     '<div class="section-title">Export</div>' +
@@ -822,16 +1090,16 @@ function renderStats(){
     '</div>' +
     '<button class="linkbtn" id="switchWho">Person wechseln (aktuell: '+(me?PEOPLE[me].name:"–")+')</button>';
 
+  $("expPins").onclick = exportPinsCSV;
+  $("expTours").onclick = exportToursCSV;
+  $("expHand").onclick = exportHandoutsCSV;
+  $("expGpx").onclick = exportGPX;
   $("copyLink").onclick = copyShareLink;
   $("changeDb").onclick = ()=>{
     $("dbInput").value = dbUrl || "";
     $("setupErr").textContent = "";
     $("setupOverlay").classList.remove("hidden");
   };
-  $("expPins").onclick = exportPinsCSV;
-  $("expTours").onclick = exportToursCSV;
-  $("expHand").onclick = exportHandoutsCSV;
-  $("expGpx").onclick = exportGPX;
   $("switchWho").onclick = ()=>$("whoOverlay").classList.remove("hidden");
 }
 
@@ -845,10 +1113,16 @@ function download(name, text, mime){
   setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 800);
 }
 function exportPinsCSV(){
-  let s = "person;typ;auto;anzahl;lat;lng;zeitpunkt\n";
+  let s = "person;typ;nachgetragen;anzahl;lat;lng;zeitpunkt;tour_id\n";
   for(const p of ["rico","susi"]) for(const pin of data.pins[p])
-    s += PEOPLE[p].name+";"+(pin.t==="f"?"eingeworfen":"uebersprungen")+";"+(pin.a?"ja":"nein")+";"+(pin.t==="f"?(pin.n||1):0)+";"+pin.lat+";"+pin.lng+";"+new Date(pin.ts).toISOString()+"\n";
+    s += PEOPLE[p].name+";"+(pin.t==="f"?"eingeworfen":"uebersprungen")+";"+(pin.m?"ja":"nein")+";"+(pin.t==="f"?(pin.n||1):0)+";"+pin.lat+";"+pin.lng+";"+new Date(pin.ts).toISOString()+";"+(pin.tour||"")+"\n";
   download("flyer-pins.csv", s, "text/csv");
+}
+function exportToursCSV(){
+  let s = "person;start;ende;dauer_min;pins;flyer;strecke_m;tour_id\n";
+  for(const p of ["rico","susi"]) for(const t of data.tours[p])
+    s += PEOPLE[p].name+";"+(t.startTs?new Date(t.startTs).toISOString():"")+";"+new Date(t.ts).toISOString()+";"+(t.startTs?Math.round((t.ts-t.startTs)/60000):"")+";"+t.pins+";"+t.flyers+";"+(t.dist||"")+";"+t.id+"\n";
+  download("flyer-touren.csv", s, "text/csv");
 }
 function exportHandoutsCSV(){
   let s = "an_wen;datum;anzahl\n";
@@ -858,12 +1132,6 @@ function exportHandoutsCSV(){
   }
   download("flyer-abgegeben.csv", s, "text/csv");
 }
-function exportToursCSV(){
-  let s = "person;zeitpunkt;pins;flyer\n";
-  for(const p of ["rico","susi"]) for(const t of data.tours[p])
-    s += PEOPLE[p].name+";"+new Date(t.ts).toISOString()+";"+t.pins+";"+t.flyers+"\n";
-  download("flyer-touren.csv", s, "text/csv");
-}
 function exportGPX(){
   let s = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Flyer-Tracker" xmlns="http://www.topografix.com/GPX/1/1">\n';
   for(const p of ["rico","susi"]) for(const pin of data.pins[p])
@@ -872,8 +1140,18 @@ function exportGPX(){
   download("flyer-pins.gpx", s, "application/gpx+xml");
 }
 
+/* ================= Teilen ================= */
+function copyShareLink(){
+  if(!dbUrl){ toast("Erst Datenbank einrichten"); return; }
+  const link = location.origin + location.pathname + "?db=" + encodeURIComponent(dbUrl);
+  const done = ()=>toast("Link kopiert ✓ – an Susi schicken");
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(link).then(done).catch(()=>window.prompt("Link manuell kopieren:", link));
+  } else window.prompt("Link manuell kopieren:", link);
+}
+
 /* ================= Person ================= */
-async function setMe(who, save){
+function setMe(who, save){
   me = who;
   document.body.classList.toggle("is-susi", who==="susi");
   const badge = $("meBadge");
@@ -883,7 +1161,7 @@ async function setMe(who, save){
   $("whoOverlay").classList.add("hidden");
   updateCounters(); renderStats();
   if(save){
-    try{ localStorage.setItem("flyer-me", who); }catch(e){ /* nicht kritisch */ }
+    try{ localStorage.setItem("flyer-me", who); }catch(e){}
   }
 }
 
@@ -901,25 +1179,24 @@ function showTab(which){
 }
 
 /* ================= Events ================= */
-$("btnFlyer").onclick = ()=>addPin("f", false);
-$("btnSkip").onclick  = ()=>addPin("s", false);
+$("btnFlyer").onclick = ()=>addPin("f");
+$("btnSkip").onclick  = ()=>addPin("s");
 $("btnUndo").onclick  = undo;
-$("btnTour").onclick  = openTour;
+$("btnBackfill").onclick = toggleBackfill;
+$("btnTour").onclick  = toggleTour;
 $("tourCancel").onclick = ()=>$("tourOverlay").classList.add("hidden");
 $("tourSave").onclick = saveTour;
+$("detailClose").onclick = ()=>$("detailOverlay").classList.add("hidden");
 $("btnRefresh").onclick = ()=>refreshOthers(true);
-$("btnAuto").onclick = ()=>{
-  autoPin = !autoPin;
-  const b = $("btnAuto");
-  b.textContent = "⚡ Auto-Pin: " + (autoPin ? "an" : "aus");
-  b.classList.toggle("toggled", autoPin);
-  if(autoPin){
-    lastPinPos = myPos ? {...myPos} : null;
-    toast("Auto-Pin an: alle ~"+AUTO_PIN_DIST+" m ein Pin. Bildschirm anlassen!");
-  }else toast("Auto-Pin aus");
+$("btnFollow").onclick = ()=>setFollow(!follow);
+$("btnHeat").onclick = ()=>{
+  heatOn = !heatOn;
+  $("btnHeat").classList.toggle("toggled", heatOn);
+  renderPins();
+  if(heatOn && typeof L.heatLayer !== "function") toast("Heatmap konnte nicht geladen werden (offline?)");
 };
-$("pickRico").onclick = ()=>setMe("rico", true);
-$("pickSusi").onclick = ()=>setMe("susi", true);
+$("pickRico").onclick = ()=>{ setMe("rico", true); migrate(); };
+$("pickSusi").onclick = ()=>{ setMe("susi", true); migrate(); };
 $("tabMap").onclick = ()=>showTab("map");
 $("tabGive").onclick = ()=>showTab("give");
 $("tabStats").onclick = ()=>showTab("stats");
@@ -927,16 +1204,7 @@ $("qPlus").onclick  = ()=>{ $("qVal").value = getQty() + 1; };
 $("qMinus").onclick = ()=>{ $("qVal").value = Math.max(1, getQty() - 1); };
 $("qVal").onchange  = ()=>{ $("qVal").value = getQty(); };
 $("giveSave").onclick = addHandout;
-
-/* ================= Teilen ================= */
-function copyShareLink(){
-  if(!dbUrl){ toast("Erst Datenbank einrichten"); return; }
-  const link = location.origin + location.pathname + "?db=" + encodeURIComponent(dbUrl);
-  const done = ()=>toast("Link kopiert ✓ – an Susi schicken");
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(link).then(done).catch(()=>window.prompt("Link manuell kopieren:", link));
-  } else window.prompt("Link manuell kopieren:", link);
-}
+$("ordSave").onclick = addOrder;
 
 /* ================= Start ================= */
 async function testDb(url){
@@ -945,11 +1213,15 @@ async function testDb(url){
 }
 async function startApp(){
   $("setupOverlay").classList.add("hidden");
-  let saved = null;
+  let saved = null, at = null;
   try{ saved = localStorage.getItem("flyer-me"); }catch(e){}
+  try{ at = JSON.parse(localStorage.getItem("flyer-activetour") || "null"); }catch(e){}
+  if(at && at.id && at.startTs) activeTour = at;   // laufende Tour übersteht Neuladen
+  updateTourUI();
   if(saved === "rico" || saved === "susi") setMe(saved, false);
   else $("whoOverlay").classList.remove("hidden");
   await loadAll();
+  migrate();
   updateCounters();
 }
 $("setupSave").onclick = async ()=>{
@@ -974,7 +1246,6 @@ $("setupSave").onclick = async ()=>{
 (function boot(){
   initMap();
   startGPS();
-  // Datenbank-Adresse aus geteiltem Link übernehmen (?db=… oder #db=…)
   let fromLink = null;
   try{
     fromLink = new URLSearchParams(location.search).get("db");
