@@ -10,8 +10,7 @@
 <style>
   :root{
     --ink:#17211F; --paper:#F3F5F4; --card:#FFFFFF; --line:#DDE3E1; --muted:#6B7774;
-    --rico:#1F5FD0; --rico-soft:#E3ECFB; --susi:#D03282; --susi-soft:#FAE4F0;
-    --skip:#98A3A0; --ok:#1E8A5A; --warn:#C8772A; --radius:14px;
+    --skip:#98A3A0; --ok:#1E8A5A; --warn:#C8772A; --bad:#C0392B; --radius:14px;
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;overscroll-behavior:none}
@@ -19,12 +18,11 @@
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     background:var(--paper);color:var(--ink);display:flex;flex-direction:column;height:100dvh;
   }
+  /* ---------- Header ---------- */
   header{background:var(--card);border-bottom:1px solid var(--line);padding:10px 14px 8px;flex:0 0 auto;z-index:1200}
   .head-row{display:flex;align-items:center;gap:10px}
   .logo{font-weight:800;font-size:17px;letter-spacing:-0.2px}
-  .logo span{color:var(--muted);font-weight:600}
-  .me-badge{margin-left:auto;display:flex;align-items:center;gap:6px;font-weight:700;font-size:14px;padding:4px 10px;border-radius:999px;background:var(--rico-soft);color:var(--rico)}
-  .me-badge.susi{background:var(--susi-soft);color:var(--susi)}
+  .me-badge{margin-left:auto;display:flex;align-items:center;gap:6px;font-weight:700;font-size:14px;padding:4px 10px;border-radius:999px}
   .me-dot{width:9px;height:9px;border-radius:50%;background:currentColor}
   .iconbtn{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-size:17px;line-height:1;cursor:pointer;color:var(--ink);display:flex;align-items:center;justify-content:center}
   .iconbtn:active{background:var(--paper)}
@@ -33,12 +31,13 @@
   .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
   .sync.ok .sync-dot{background:var(--ok)} .sync.ok{color:var(--ok)}
   .sync.busy .sync-dot{background:var(--warn);animation:blink 1s infinite} .sync.busy{color:var(--warn)}
-  .sync.off .sync-dot{background:#C0392B;animation:blink 1s infinite} .sync.off{color:#C0392B}
+  .sync.off .sync-dot{background:var(--bad);animation:blink 1s infinite} .sync.off{color:var(--bad)}
   @keyframes blink{50%{opacity:.3}}
   .gps-info{margin-left:auto}
   .tabs{display:flex;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:3px;margin-top:8px}
   .tabs button{flex:1;border:0;background:transparent;padding:7px 0;border-radius:8px;font-weight:700;font-size:13.5px;color:var(--muted);cursor:pointer;font-family:inherit}
   .tabs button.active{background:var(--card);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  /* ---------- Karte ---------- */
   main{flex:1;position:relative;overflow:hidden}
   #view-map{position:absolute;inset:0;display:flex;flex-direction:column}
   #map{flex:1;z-index:1}
@@ -46,11 +45,13 @@
   .map-fabs{position:absolute;right:12px;bottom:12px;z-index:900;display:flex;flex-direction:column;gap:8px}
   .map-fab{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-size:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.15);color:var(--ink)}
   .map-fab.toggled{background:var(--ink);color:#fff;border-color:var(--ink)}
-  #bfBanner{
-    position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:950;
-    background:var(--ink);color:#fff;font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:999px;
-    max-width:92%;text-align:center;display:none;box-shadow:0 2px 8px rgba(0,0,0,.2);
+  .map-banner{
+    position:absolute;left:50%;transform:translateX(-50%);z-index:950;color:#fff;font-size:12.5px;font-weight:700;
+    padding:8px 14px;border-radius:999px;max-width:92%;text-align:center;display:none;box-shadow:0 2px 8px rgba(0,0,0,.2);
   }
+  #bfBanner{top:10px;background:var(--ink)}
+  #gpsBanner{top:52px;background:var(--bad)}
+  /* ---------- Aktionsleiste ---------- */
   .actionbar{flex:0 0 auto;background:var(--card);border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom));z-index:1000}
   .btn-row{display:flex;gap:10px}
   .bigbtn{
@@ -60,8 +61,7 @@
   .bigbtn small{font-weight:600;font-size:11px;opacity:.85}
   .bigbtn:active{transform:scale(.97)}
   .bigbtn:disabled{opacity:.45;cursor:default}
-  #btnFlyer{background:var(--rico);flex:1.6}
-  body.is-susi #btnFlyer{background:var(--susi)}
+  #btnFlyer{background:var(--ink);flex:1.6}
   #btnSkip{background:var(--skip)}
   .small-row{display:flex;gap:8px;margin-top:8px}
   .smallbtn{flex:1;border:1px solid var(--line);background:var(--paper);border-radius:10px;padding:9px 4px;font-size:12.5px;font-weight:700;font-family:inherit;color:var(--ink);cursor:pointer}
@@ -77,30 +77,27 @@
   .qty .qbtns button{flex:1;border:0;background:var(--paper);font-weight:800;font-size:21px;color:var(--ink);cursor:pointer;font-family:inherit;line-height:1}
   .qty .qbtns button:active{background:var(--line)}
   .qty .qbtns button+button{border-left:1px solid var(--line)}
+  /* ---------- Bestand-Tab ---------- */
   #view-give{position:absolute;inset:0;overflow-y:auto;padding:14px;display:none}
   .form-grid{display:grid;grid-template-columns:1fr 80px;gap:10px;margin-bottom:10px}
   .field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:4px}
-  .field input{width:100%;padding:11px 10px;border:2px solid var(--line);border-radius:10px;font-family:inherit;font-size:15px;font-weight:600;background:var(--paper);color:var(--ink)}
-  .field input:focus{outline:none;border-color:var(--ink)}
-  .give-save{width:100%;border:0;border-radius:12px;padding:14px 0;font-size:15.5px;font-weight:800;font-family:inherit;color:#fff;background:var(--ink);cursor:pointer}
-  .give-del{background:none;border:0;color:#C0392B;font-size:16px;font-weight:800;cursor:pointer;padding:2px 8px}
-  #toast{
-    position:fixed;left:50%;bottom:170px;transform:translateX(-50%) translateY(8px);
-    background:var(--ink);color:#fff;font-weight:700;font-size:14px;padding:10px 18px;border-radius:999px;
-    opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:3000;white-space:nowrap;max-width:94%;
+  .field input,.field select{
+    width:100%;padding:11px 10px;border:2px solid var(--line);border-radius:10px;font-family:inherit;
+    font-size:15px;font-weight:600;background:var(--paper);color:var(--ink);appearance:none;
   }
-  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--ink)}
+  .give-save{width:100%;border:0;border-radius:12px;padding:14px 0;font-size:15.5px;font-weight:800;font-family:inherit;color:#fff;background:var(--ink);cursor:pointer}
+  .give-del{background:none;border:0;color:var(--bad);font-size:16px;font-weight:800;cursor:pointer;padding:2px 8px}
+  /* ---------- Statistik ---------- */
   #view-stats{position:absolute;inset:0;overflow-y:auto;padding:14px;display:none}
   .stat-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:13px 14px}
   .card .label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
   .card .big{font-size:28px;font-weight:800;margin-top:3px;letter-spacing:-0.5px}
   .card .sub{font-size:12px;color:var(--muted);margin-top:2px}
-  .card.rico{border-top:3px solid var(--rico)} .card.rico .big{color:var(--rico)}
-  .card.susi{border-top:3px solid var(--susi)} .card.susi .big{color:var(--susi)}
   .section-title{font-size:13px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:20px 2px 8px}
   .chart-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px}
-  .legend{display:flex;gap:14px;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px}
+  .legend{display:flex;gap:14px;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;flex-wrap:wrap}
   .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
   .empty{font-size:13px;color:var(--muted);padding:8px 2px}
   table{width:100%;border-collapse:collapse;font-size:13px}
@@ -112,14 +109,12 @@
   .export-row{display:flex;gap:8px;flex-wrap:wrap}
   .export-row .smallbtn{flex:1 1 30%}
   .linkbtn{background:none;border:0;color:var(--muted);font-size:12.5px;font-weight:600;text-decoration:underline;cursor:pointer;font-family:inherit;margin:18px auto 30px;display:block}
+  /* ---------- Overlays ---------- */
   .overlay{position:fixed;inset:0;background:rgba(23,33,31,.55);z-index:5000;display:flex;align-items:center;justify-content:center;padding:24px}
   .overlay.hidden{display:none}
   .modal{background:var(--card);border-radius:18px;padding:22px;width:100%;max-width:360px;max-height:86dvh;overflow-y:auto}
   .modal h2{font-size:19px;font-weight:800;letter-spacing:-0.3px;margin-bottom:4px}
   .modal p{font-size:13.5px;color:var(--muted);margin-bottom:14px;line-height:1.45}
-  .who-row{display:flex;gap:10px}
-  .who-row button{flex:1;border:0;border-radius:14px;padding:20px 0;font-size:18px;font-weight:800;color:#fff;cursor:pointer;font-family:inherit}
-  #pickRico{background:var(--rico)} #pickSusi{background:var(--susi)}
   .modal input[type=number]{width:100%;font-size:24px;font-weight:800;padding:10px 12px;border:2px solid var(--line);border-radius:12px;font-family:inherit;text-align:center;color:var(--ink);background:var(--paper)}
   .modal input[type=number]:focus{outline:none;border-color:var(--ink)}
   .modal .hint{font-size:12px;color:var(--muted);margin-top:8px;text-align:center}
@@ -130,13 +125,24 @@
   .kv{display:flex;justify-content:space-between;font-size:14px;padding:7px 0;border-bottom:1px solid var(--line)}
   .kv:last-of-type{border-bottom:0}
   .kv b{font-weight:800}
-  #gpsBanner{
-    position:absolute;top:52px;left:50%;transform:translateX(-50%);z-index:950;background:#C0392B;color:#fff;
-    font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:999px;max-width:92%;text-align:center;display:none;
-    box-shadow:0 2px 8px rgba(0,0,0,.2);
+  /* Personen-Auswahl */
+  #whoList{display:flex;flex-direction:column;gap:10px}
+  .who-btn{border:0;border-radius:14px;padding:17px 0;font-size:17px;font-weight:800;color:#fff;cursor:pointer;font-family:inherit;width:100%}
+  .who-btn.new{background:var(--paper);color:var(--ink);border:2px dashed var(--line)}
+  #whoNewForm{margin-top:14px;border-top:1px solid var(--line);padding-top:14px}
+  .swatches{display:flex;flex-wrap:wrap;gap:9px;margin:10px 0 4px}
+  .swatch{width:34px;height:34px;border-radius:50%;border:3px solid transparent;cursor:pointer;padding:0}
+  .swatch.sel{border-color:var(--ink)}
+  .name-input{width:100%;padding:11px 10px;border:2px solid var(--line);border-radius:10px;font-family:inherit;font-size:15px;font-weight:600;background:var(--paper);color:var(--ink)}
+  .name-input:focus{outline:none;border-color:var(--ink)}
+  #toast{
+    position:fixed;left:50%;bottom:170px;transform:translateX(-50%) translateY(8px);
+    background:var(--ink);color:#fff;font-weight:700;font-size:14px;padding:10px 18px;border-radius:999px;
+    opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:6000;white-space:nowrap;max-width:94%;
   }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   .leaflet-popup-content{font-family:inherit;font-size:13px;margin:10px 14px}
-  .pop-del{margin-top:6px;background:#C0392B;color:#fff;border:0;border-radius:8px;padding:6px 12px;font-weight:700;font-family:inherit;cursor:pointer;font-size:12px}
+  .pop-del{margin-top:6px;background:var(--bad);color:#fff;border:0;border-radius:8px;padding:6px 12px;font-weight:700;font-family:inherit;cursor:pointer;font-size:12px}
   .pop-add{margin:3px 4px 0 0;border:0;border-radius:8px;padding:7px 12px;font-weight:700;font-family:inherit;cursor:pointer;font-size:12px;color:#fff}
   .presence-label{background:var(--card);border:1px solid var(--line);border-radius:8px;font-weight:800;font-size:11px;padding:2px 7px;box-shadow:0 1px 4px rgba(0,0,0,.15)}
 </style>
@@ -145,9 +151,9 @@
 
 <header>
   <div class="head-row">
-    <div class="logo">Flyer-Tracker <span>· Rico &amp; Susi</span></div>
+    <div class="logo">Flyer-Tracker</div>
     <div class="me-badge" id="meBadge" style="display:none"><span class="me-dot"></span><span id="meName"></span></div>
-    <button class="iconbtn" id="btnRefresh" title="Daten des anderen nachladen">&#8635;</button>
+    <button class="iconbtn" id="btnRefresh" title="Daten der anderen nachladen">&#8635;</button>
   </div>
   <div class="status-row">
     <div class="sync busy" id="sync"><span class="sync-dot"></span><span id="syncText">Lädt …</span></div>
@@ -165,8 +171,8 @@
   <div id="view-map">
     <div style="position:relative;flex:1;display:flex">
       <div id="map"></div>
-      <div id="bfBanner">Nachtrag-Modus: auf die Karte tippen, um einen Pin zu setzen</div>
-      <div id="gpsBanner"></div>
+      <div class="map-banner" id="bfBanner">Nachtrag-Modus: auf die Karte tippen, um einen Pin zu setzen</div>
+      <div class="map-banner" id="gpsBanner"></div>
       <div class="map-fabs">
         <button class="map-fab" id="btnHeat" title="Heatmap ein/aus">🔥</button>
         <button class="map-fab toggled" id="btnFollow" title="Zentrieren und verfolgen">&#9678;</button>
@@ -212,7 +218,10 @@
         <div class="field"><label for="giveName">An wen</label><input id="giveName" type="text" placeholder="z. B. Bäckerei Müller" autocomplete="off"></div>
         <div class="field"><label for="giveN">Anzahl</label><input id="giveN" type="number" value="1" min="1" max="9999" inputmode="numeric"></div>
       </div>
-      <div class="field" style="margin-bottom:12px"><label for="giveDate">Datum</label><input id="giveDate" type="date"></div>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr">
+        <div class="field"><label for="giveBy">Von wem</label><select id="giveBy"></select></div>
+        <div class="field"><label for="giveDate">Datum</label><input id="giveDate" type="date"></div>
+      </div>
       <button class="give-save" id="giveSave">＋ Eintrag speichern</button>
     </div>
     <div class="section-title">Einträge <span id="giveTotal" style="text-transform:none;letter-spacing:0"></span></div>
@@ -226,15 +235,22 @@
 
 <div id="toast"></div>
 
-<!-- Namensauswahl -->
+<!-- Personen-Auswahl / Neue Person -->
 <div class="overlay hidden" id="whoOverlay">
   <div class="modal">
     <h2>Wer bist du?</h2>
     <p>Deine Pins werden in deiner Farbe gespeichert. Die Auswahl wird auf diesem Gerät gemerkt.</p>
-    <div class="who-row">
-      <button id="pickRico">Rico</button>
-      <button id="pickSusi">Susi</button>
+    <div id="whoList"></div>
+    <div id="whoNewForm" style="display:none">
+      <div class="field" style="margin-bottom:8px"><label for="whoName">Name</label><input class="name-input" id="whoName" type="text" maxlength="20" placeholder="z. B. Max" autocomplete="off"></div>
+      <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)">Pinfarbe</label>
+      <div class="swatches" id="swatches"></div>
+      <div class="modal-btns" style="margin-top:10px">
+        <button class="btn-secondary" id="whoNewCancel">Zurück</button>
+        <button class="btn-primary" id="whoNewSave">Anlegen</button>
+      </div>
     </div>
+    <button class="linkbtn" id="whoClose" style="margin:14px auto 0;display:none">Abbrechen</button>
   </div>
 </div>
 
@@ -282,38 +298,42 @@
 (function(){
 "use strict";
 
-/* ================= Konstanten & Zustand ================= */
-const PEOPLE = {
-  rico: { name:"Rico", color:"#1F5FD0" },
-  susi: { name:"Susi", color:"#D03282" }
-};
+/* ============================================================
+   1) Konstanten & Zustand
+   ============================================================ */
 const COOLDOWN_S    = 5;
 const SYNC_EVERY_MS = 25000;
-const TRACK_MIN_M   = 12;      // Mindestabstand für neuen Track-Punkt
-const PRESENCE_MAX  = 180000;  // 3 min: so lange gilt die Live-Position des anderen
+const TRACK_MIN_M   = 12;
+const PRESENCE_MAX  = 180000;
+const FALLBACK_COLOR = "#8A9491";
+const PALETTE = ["#1F5FD0","#D03282","#1E8A5A","#C8772A","#7B3FD0","#0F9BB5","#C0392B","#7A8B1F","#B5851F","#333F8F"];
+const SEED_USERS = [ ["rico","Rico","#1F5FD0"], ["susi","Susi","#D03282"] ];
 
-let me = null;
-let myPos = null, myAcc = null;
-let data = { pins:{rico:[],susi:[]}, tours:{rico:[],susi:[]}, tracks:{rico:{},susi:{}} };
-let handouts = {};
-let orders = {};
-let stock = { printed:0 }; // nur noch für die Übernahme alter Daten
+let dbUrl = null;
+let me = null;                     // Nutzer-ID
+let users = {};                    // id -> {name, color, ts}
+let data = { pins:{}, tours:{}, tracks:{} };   // je: nutzerId -> Array bzw. Objekt
+let handouts = {};                 // id -> {name, n, day, ts, by?}
+let orders = {};                   // id -> {n, day, ts}
 let dirty = { pins:false, tours:false, tracks:false };
-let pendingH = [];
-let session = [];              // eigene Pin-IDs dieser Browser-Sitzung (für Rückgängig)
-let activeTour = null;         // {id, startTs} – überlebt Neuladen via localStorage
+let pendingKV = [];                // Warteschlange für handouts/orders/users
+let session = [];                  // eigene Pin-IDs dieser Browser-Sitzung (Rückgängig)
+let activeTour = null;             // {id, startTs}
 let cooldownUntil = 0, cooldownIv = null;
-let backfill = false;
+let backfill = false, heatOn = false;
 let follow = true, progMove = false, firstFix = true;
-let heatOn = false;
-let map, pinLayer, trackLayer, heatLayer = null, meMarker = null, accCircle = null, otherMarker = null;
-let saving = false, flushingH = false, loaded = false;
+let myPos = null, myAcc = null;
+let map, pinLayer, trackLayer, heatLayer = null, meMarker = null, accCircle = null;
+let presenceMarkers = {};          // nutzerId -> Marker
+let saving = false, flushing = false, loaded = false;
+let newColor = null;
 
 const $ = id => document.getElementById(id);
-const other = () => me === "rico" ? "susi" : "rico";
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 
-/* ================= Hilfsfunktionen ================= */
+/* ============================================================
+   2) Kleine Helfer
+   ============================================================ */
 function toast(msg){
   const t = $("toast");
   t.textContent = msg;
@@ -322,10 +342,8 @@ function toast(msg){
   t._tm = setTimeout(()=>t.classList.remove("show"), 2000);
 }
 function vibrate(ms){ try{ if(navigator.vibrate) navigator.vibrate(ms); }catch(e){} }
-function setSync(state, text){
-  $("sync").className = "sync " + state;
-  $("syncText").textContent = text;
-}
+function setSync(state, text){ $("sync").className = "sync "+state; $("syncText").textContent = text; }
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function distM(a,b){
   const R=6371000, toR=Math.PI/180;
   const dLat=(b.lat-a.lat)*toR, dLng=(b.lng-a.lng)*toR;
@@ -343,43 +361,141 @@ function fmtClock(ts){ return new Date(ts).toLocaleTimeString("de-DE",{hour:"2-d
 function fmtDur(ms){
   if(ms == null) return "–";
   const m = Math.round(ms/60000);
-  if(m < 60) return m + " min";
-  return Math.floor(m/60) + " h " + (m%60) + " min";
+  if(m < 60) return m+" min";
+  return Math.floor(m/60)+" h "+(m%60)+" min";
 }
 function fmtDist(m){
   if(!m || m < 1) return "–";
-  return m < 1000 ? Math.round(m) + " m" : (m/1000).toFixed(2).replace(".",",") + " km";
+  return m < 1000 ? Math.round(m)+" m" : (m/1000).toFixed(2).replace(".",",")+" km";
 }
-function esc(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function pinFly(p){ return p.t==="f" ? (p.n||1) : 0; }
-function ageDays(ts){
-  const t = new Date(); t.setHours(0,0,0,0);
-  const d = new Date(ts); d.setHours(0,0,0,0);
-  return Math.round((t - d) / 86400000);
+function isToday(ts){
+  const t=new Date(); t.setHours(0,0,0,0);
+  const d=new Date(ts); d.setHours(0,0,0,0);
+  return t.getTime() === d.getTime();
+}
+function ls(key, val){ // localStorage lesen/schreiben ohne Absturz
+  try{
+    if(val === undefined) return localStorage.getItem(key);
+    if(val === null) localStorage.removeItem(key); else localStorage.setItem(key, val);
+  }catch(e){ return null; }
 }
 
-/* ================= Speicher (Firebase Realtime Database) ================= */
-let dbUrl = null;
+/* ============================================================
+   3) Nutzer
+   ============================================================ */
+function uname(id){ return users[id] ? users[id].name : "Unbekannt"; }
+function ucolor(id){ return users[id] ? users[id].color : FALLBACK_COLOR; }
+function userIds(){ return Object.keys(users).sort((a,b)=>(users[a].ts||0)-(users[b].ts||0)); }
+function dataOwners(){ // registrierte Nutzer + verwaiste Daten-Besitzer
+  const set = new Set(userIds());
+  for(const k of Object.keys(data.pins)) set.add(k);
+  for(const k of Object.keys(data.tours)) set.add(k);
+  return Array.from(set);
+}
+function ensureUserData(id){
+  if(!data.pins[id]) data.pins[id] = [];
+  if(!data.tours[id]) data.tours[id] = [];
+  if(!data.tracks[id]) data.tracks[id] = {};
+}
+function seedUsers(){
+  if(Object.keys(users).length > 0) return;
+  let t = Date.now();
+  for(const def of SEED_USERS){
+    const rec = { name:def[1], color:def[2], ts:t++ };
+    users[def[0]] = rec;
+    pendingKV.push({path:"users", op:"set", id:def[0], rec:rec});
+  }
+  flushKV();
+}
+function createUser(){
+  const name = $("whoName").value.trim();
+  if(!name){ toast("Bitte einen Namen eingeben"); $("whoName").focus(); return; }
+  const taken = new Set(userIds().map(id=>users[id].color));
+  const color = newColor || PALETTE.find(c=>!taken.has(c)) || PALETTE[0];
+  const id = uid();
+  const rec = { name:name, color:color, ts:Date.now() };
+  users[id] = rec;
+  pendingKV.push({path:"users", op:"set", id:id, rec:rec});
+  flushKV();
+  ensureUserData(id);
+  $("whoName").value = ""; newColor = null;
+  usersChanged();
+  pickUser(id);
+  toast("Willkommen, "+name+"! ✓");
+}
+function pickUser(id){
+  setMe(id, true);
+  $("whoOverlay").classList.add("hidden");
+  $("whoNewForm").style.display = "none";
+  migrate();
+}
+window.__pick = pickUser;
+function setMe(id, save){
+  me = id;
+  ensureUserData(id);
+  const col = ucolor(id);
+  const badge = $("meBadge");
+  badge.style.display = "flex";
+  badge.style.color = col;
+  badge.style.background = col + "22";
+  $("meName").textContent = uname(id);
+  $("btnFlyer").style.background = col;
+  syncGiveBy();
+  updateCounters(); renderStatsIfVisible();
+  if(save) ls("flyer-me", id);
+}
+function renderWho(){
+  $("whoClose").style.display = me ? "block" : "none";
+  $("whoList").innerHTML =
+    userIds().map(id=>'<button class="who-btn" style="background:'+ucolor(id)+'" onclick="window.__pick(\''+id+'\')">'+esc(uname(id))+'</button>').join("") +
+    '<button class="who-btn new" id="whoNewBtn">＋ Neue Person anlegen</button>';
+  $("whoNewBtn").onclick = ()=>{
+    $("whoNewForm").style.display = "block";
+    renderSwatches();
+    $("whoName").focus();
+  };
+}
+function renderSwatches(){
+  const taken = new Set(userIds().map(id=>users[id].color));
+  if(!newColor) newColor = PALETTE.find(c=>!taken.has(c)) || PALETTE[0];
+  $("swatches").innerHTML = PALETTE.map(c=>
+    '<button type="button" class="swatch'+(c===newColor?" sel":"")+'" style="background:'+c+'" data-c="'+c+'" title="'+(taken.has(c)?"schon vergeben":"")+'"></button>'
+  ).join("");
+  for(const b of $("swatches").querySelectorAll(".swatch"))
+    b.onclick = ()=>{ newColor = b.dataset.c; renderSwatches(); };
+}
+function usersChanged(){ // nach Laden/Anlegen: alles aktualisieren, was Nutzer anzeigt
+  renderWho();
+  syncGiveBy();
+  if(me){
+    $("btnFlyer").style.background = ucolor(me);
+    $("meBadge").style.color = ucolor(me);
+    $("meBadge").style.background = ucolor(me) + "22";
+    $("meName").textContent = uname(me);
+  }
+}
+
+/* ============================================================
+   4) Datenbank (Firebase Realtime Database, REST)
+   ============================================================ */
 function normalizeDb(u){
   if(!u) return null;
   u = u.trim().replace(/\/+$/,"");
-  if(!/^https:\/\/[^\s]+$/.test(u)) return null;
-  return u;
+  return /^https:\/\/[^\s]+$/.test(u) ? u : null;
 }
 async function dbGet(key){
-  const r = await fetch(dbUrl + "/" + key + ".json", {cache:"no-store"});
-  if(!r.ok) throw new Error("HTTP " + r.status);
+  const r = await fetch(dbUrl+"/"+key+".json", {cache:"no-store"});
+  if(!r.ok) throw new Error("HTTP "+r.status);
   return await r.json();
 }
 async function dbSet(key, val){
-  const r = await fetch(dbUrl + "/" + key + ".json", {
-    method:"PUT", headers:{"Content-Type":"application/json"}, body: JSON.stringify(val)
-  });
-  if(!r.ok) throw new Error("HTTP " + r.status);
+  const r = await fetch(dbUrl+"/"+key+".json", {method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(val)});
+  if(!r.ok) throw new Error("HTTP "+r.status);
 }
 async function dbDelete(key){
-  const r = await fetch(dbUrl + "/" + key + ".json", {method:"DELETE"});
-  if(!r.ok) throw new Error("HTTP " + r.status);
+  const r = await fetch(dbUrl+"/"+key+".json", {method:"DELETE"});
+  if(!r.ok) throw new Error("HTTP "+r.status);
 }
 async function loadArr(key, fallback){
   try{ const v = await dbGet(key); return Array.isArray(v) ? v : fallback; }catch(e){ return fallback; }
@@ -387,47 +503,36 @@ async function loadArr(key, fallback){
 async function loadObj(key, fallback){
   try{ const v = await dbGet(key); return (v && typeof v==="object" && !Array.isArray(v)) ? v : fallback; }catch(e){ return fallback; }
 }
-async function loadAll(){
-  setSync("busy","Lädt …");
-  const res = await Promise.all([
-    loadArr("pins-rico",[]), loadArr("pins-susi",[]),
-    loadArr("tours-rico",[]), loadArr("tours-susi",[]),
-    loadObj("tracks-rico",{}), loadObj("tracks-susi",{}),
-    loadObj("handouts",{}), loadObj("stock",{printed:0}), loadObj("orders",{})
-  ]);
-  data.pins.rico=res[0]; data.pins.susi=res[1];
-  data.tours.rico=res[2]; data.tours.susi=res[3];
-  data.tracks.rico=res[4]; data.tracks.susi=res[5];
-  handouts=res[6]; stock=res[7]; orders=res[8];
-  applyPendingH();
-  // Alte Einzelbestand-Angabe einmalig als Bestellung übernehmen (idempotent über feste ID)
-  if(Object.keys(orders).length===0 && stock && stock.printed > 0){
-    const rec = { n: stock.printed, day: dayKey(Date.now()), ts: Date.now() };
-    orders["importstock"] = rec;
-    pendingH.push({path:"orders", op:"set", id:"importstock", rec:rec});
-    flushH();
+
+/* --- Warteschlange für Einzel-Datensätze (users / handouts / orders) --- */
+function kvStore(path){ return path==="orders" ? orders : path==="users" ? users : handouts; }
+function applyPendingKV(){
+  for(const op of pendingKV){
+    const store = kvStore(op.path);
+    if(op.op==="set") store[op.id] = op.rec;
+    else delete store[op.id];
   }
-  loaded = true;
-  setSync("ok","Synchronisiert");
-  renderAll();
 }
-async function refreshOthers(showToast){
-  if(!me || !dbUrl) return;
-  const o = other();
-  setSync("busy","Aktualisiere …");
-  data.pins[o]   = await loadArr("pins-"+o,  data.pins[o]);
-  data.tours[o]  = await loadArr("tours-"+o, data.tours[o]);
-  data.tracks[o] = await loadObj("tracks-"+o, data.tracks[o]);
-  handouts = await loadObj("handouts", handouts);
-  orders = await loadObj("orders", orders);
-  applyPendingH();
-  await updatePresence();
-  const pending = dirty.pins || dirty.tours || dirty.tracks || pendingH.length > 0;
-  setSync(pending ? "off" : "ok", pending ? "Offline – sende später" : "Synchronisiert");
-  renderAll();
-  if(showToast) toast("Aktualisiert ✓");
+async function flushKV(){
+  if(flushing || !dbUrl) return;
+  flushing = true;
+  while(pendingKV.length){
+    const op = pendingKV[0];
+    try{
+      if(op.op==="set") await dbSet(op.path+"/"+op.id, op.rec);
+      else await dbDelete(op.path+"/"+op.id);
+      pendingKV.shift();
+      updateSyncState();
+    }catch(e){ setSync("off","Offline – sende später"); break; }
+  }
+  flushing = false;
 }
-async function persist(kind){ // "pins" | "tours" | "tracks"
+function updateSyncState(){
+  if(!dirty.pins && !dirty.tours && !dirty.tracks && pendingKV.length===0) setSync("ok","Synchronisiert");
+}
+
+/* --- Ganze Listen (Pins/Touren/Tracks) der eigenen Person --- */
+async function persist(kind){
   if(!me || !dbUrl){ dirty[kind]=true; return; }
   if(saving){ dirty[kind]=true; return; }
   saving = true;
@@ -436,7 +541,7 @@ async function persist(kind){ // "pins" | "tours" | "tracks"
   const payload = JSON.parse(JSON.stringify(data[kind][me]));
   try{
     await dbSet(kind+"-"+me, payload);
-    if(!dirty.pins && !dirty.tours && !dirty.tracks && pendingH.length===0) setSync("ok","Synchronisiert");
+    updateSyncState();
   }catch(e){
     dirty[kind] = true;
     setSync("off","Offline – sende später");
@@ -448,12 +553,64 @@ async function persist(kind){ // "pins" | "tours" | "tracks"
 }
 function markDirtyAndPersist(kind){ dirty[kind]=true; persist(kind); }
 
+/* --- Laden --- */
+async function loadUserData(id){
+  const res = await Promise.all([
+    loadArr("pins-"+id, data.pins[id]||[]),
+    loadArr("tours-"+id, data.tours[id]||[]),
+    loadObj("tracks-"+id, data.tracks[id]||{})
+  ]);
+  data.pins[id]=res[0]; data.tours[id]=res[1]; data.tracks[id]=res[2];
+}
+async function loadAll(){
+  setSync("busy","Lädt …");
+  users = await loadObj("users", {});
+  applyPendingKV();
+  seedUsers();
+  const jobs = userIds().map(id=>loadUserData(id));
+  jobs.push((async()=>{ handouts = await loadObj("handouts", {}); })());
+  jobs.push((async()=>{ orders = await loadObj("orders", {}); })());
+  const legacyStock = loadObj("stock", null);
+  await Promise.all(jobs);
+  applyPendingKV();
+  // Alte Einzelbestand-Angabe einmalig als Bestellung übernehmen (idempotent über feste ID)
+  const st = await legacyStock;
+  if(Object.keys(orders).length===0 && st && st.printed > 0){
+    const rec = { n:st.printed, day:dayKey(Date.now()), ts:Date.now() };
+    orders["importstock"] = rec;
+    pendingKV.push({path:"orders", op:"set", id:"importstock", rec:rec});
+    flushKV();
+  }
+  loaded = true;
+  setSync("ok","Synchronisiert");
+  usersChanged();
+  renderAll();
+}
+async function refreshOthers(showToast){
+  if(!me || !dbUrl) return;
+  setSync("busy","Aktualisiere …");
+  users = await loadObj("users", users);
+  applyPendingKV();
+  for(const id of userIds()){
+    if(id === me) continue;               // eigener Stand bleibt lokal führend
+    await loadUserData(id);
+  }
+  handouts = await loadObj("handouts", handouts);
+  orders = await loadObj("orders", orders);
+  applyPendingKV();
+  await updatePresence();
+  const pending = dirty.pins || dirty.tours || dirty.tracks || pendingKV.length > 0;
+  setSync(pending ? "off" : "ok", pending ? "Offline – sende später" : "Synchronisiert");
+  usersChanged();
+  renderAll();
+  if(showToast) toast("Aktualisiert ✓");
+}
 setInterval(()=>{
   if(!dbUrl) return;
   if(dirty.pins) persist("pins");
   if(dirty.tours) persist("tours");
   if(dirty.tracks) persist("tracks");
-  if(pendingH.length) flushH();
+  if(pendingKV.length) flushKV();
   sendPresence();
   refreshOthers(false);
 }, SYNC_EVERY_MS);
@@ -461,94 +618,43 @@ document.addEventListener("visibilitychange", ()=>{
   if(document.visibilityState==="visible" && dbUrl) refreshOthers(false);
 });
 
-/* ================= Live-Position des anderen ================= */
+/* ============================================================
+   5) Live-Positionen der anderen
+   ============================================================ */
 async function sendPresence(){
   if(!me || !myPos || !dbUrl) return;
   try{ await dbSet("presence-"+me, {lat:+myPos.lat.toFixed(6), lng:+myPos.lng.toFixed(6), ts:Date.now()}); }catch(e){}
 }
 async function updatePresence(){
   if(!me) return;
-  let p = null;
-  try{ p = await dbGet("presence-"+other()); }catch(e){}
-  const fresh = p && p.ts && (Date.now() - p.ts) < PRESENCE_MAX;
-  if(fresh){
-    const col = PEOPLE[other()].color;
-    if(!otherMarker){
-      otherMarker = L.circleMarker([p.lat,p.lng],{radius:9,color:"#fff",weight:3,fillColor:col,fillOpacity:1})
-        .bindTooltip(PEOPLE[other()].name,{permanent:true,direction:"top",offset:[0,-10],className:"presence-label"})
-        .addTo(map);
-    }else otherMarker.setLatLng([p.lat,p.lng]);
-  }else if(otherMarker){
-    map.removeLayer(otherMarker); otherMarker = null;
+  for(const id of userIds()){
+    if(id === me) continue;
+    let p = null;
+    try{ p = await dbGet("presence-"+id); }catch(e){}
+    const fresh = p && p.ts && (Date.now()-p.ts) < PRESENCE_MAX;
+    if(fresh){
+      if(!presenceMarkers[id]){
+        presenceMarkers[id] = L.circleMarker([p.lat,p.lng],{radius:9,color:"#fff",weight:3,fillColor:ucolor(id),fillOpacity:1})
+          .bindTooltip(uname(id),{permanent:true,direction:"top",offset:[0,-10],className:"presence-label"})
+          .addTo(map);
+      }else presenceMarkers[id].setLatLng([p.lat,p.lng]);
+    }else if(presenceMarkers[id]){
+      map.removeLayer(presenceMarkers[id]);
+      delete presenceMarkers[id];
+    }
   }
 }
 
-/* ================= Abgegeben ================= */
-function applyPendingH(){
-  for(const op of pendingH){
-    const store = op.path === "orders" ? orders : handouts;
-    if(op.op==="set") store[op.id]=op.rec;
-    else delete store[op.id];
-  }
-}
-async function flushH(){
-  if(flushingH || !dbUrl) return;
-  flushingH = true;
-  while(pendingH.length){
-    const op = pendingH[0];
-    try{
-      const path = op.path || "handouts";
-      if(op.op==="set") await dbSet(path+"/"+op.id, op.rec);
-      else await dbDelete(path+"/"+op.id);
-      pendingH.shift();
-      if(!dirty.pins && !dirty.tours && !dirty.tracks && pendingH.length===0) setSync("ok","Synchronisiert");
-    }catch(e){ setSync("off","Offline – sende später"); break; }
-  }
-  flushingH = false;
-}
-function addHandout(){
-  const name = $("giveName").value.trim();
-  const n = Math.min(9999, Math.max(1, parseInt($("giveN").value,10) || 1));
-  const day = $("giveDate").value || dayKey(Date.now());
-  if(!name){ toast("Bitte eingeben, an wen"); $("giveName").focus(); return; }
-  const id = uid();
-  const rec = { name:name, n:n, day:day, ts:Date.now() };
-  handouts[id] = rec;
-  pendingH.push({path:"handouts", op:"set", id:id, rec:rec});
-  flushH();
-  $("giveName").value = ""; $("giveN").value = 1;
-  renderGive();
-  toast("Gespeichert: "+n+" Flyer an "+name+" ✓");
-}
-window.__delHand = function(id){
-  if(!handouts[id]) return;
-  delete handouts[id];
-  pendingH.push({path:"handouts", op:"del", id:id});
-  flushH();
-  renderGive();
-  toast("Eintrag gelöscht");
-};
-function renderGive(){
-  if(!$("giveDate").value) $("giveDate").value = dayKey(Date.now());
-  const list = Object.keys(handouts).map(k=>({id:k, name:handouts[k].name, n:handouts[k].n, day:handouts[k].day, ts:handouts[k].ts}))
-    .sort((a,b)=> a.day===b.day ? b.ts-a.ts : (a.day<b.day?1:-1));
-  const total = list.reduce((s,h)=>s+(h.n||0),0);
-  $("giveTotal").textContent = list.length ? "· "+total+" Flyer gesamt" : "";
-  $("giveList").innerHTML = list.length===0
-    ? '<div class="empty">Noch keine Einträge. Trage oben ein, wem du Flyer gegeben hast – z. B. einem Laden oder Bekannten.</div>'
-    : '<table><tr><th>An wen</th><th>Datum</th><th>Flyer</th><th></th></tr>'+
-      list.map(h=>'<tr><td style="font-weight:600">'+esc(h.name)+'</td><td>'+fmtDayFull(h.day)+'</td><td style="text-align:right;font-weight:700">'+h.n+'</td><td style="text-align:right"><button class="give-del" onclick="window.__delHand(\''+h.id+'\')">✕</button></td></tr>').join("")+
-      "</table>";
-}
-
-/* ================= Bestellungen ================= */
+/* ============================================================
+   6) Bestellungen & Abgegeben
+   ============================================================ */
 function orderedFlyers(){ let s=0; for(const k in orders) s += (orders[k].n||0); return s; }
 function usedFlyers(){
   let tourFly=0; const savedIds=new Set();
-  for(const p of ["rico","susi"]) for(const t of data.tours[p]){ tourFly += t.flyers; savedIds.add(t.id); }
+  for(const o of dataOwners()) for(const t of (data.tours[o]||[])){ tourFly += t.flyers; savedIds.add(t.id); }
   let hFly=0; for(const k in handouts) hFly += (handouts[k].n||0);
   let loose=0;
-  for(const p of ["rico","susi"]) for(const pin of data.pins[p])
+  for(const o of dataOwners()) for(const pin of (data.pins[o]||[]))
     if(pin.t==="f" && (!pin.tour || !savedIds.has(pin.tour))) loose += (pin.n||1);
   return { used: tourFly+hFly+loose, tourFly:tourFly, hFly:hFly, loose:loose };
 }
@@ -559,8 +665,8 @@ function addOrder(){
   const id = uid();
   const rec = { n:n, day:day, ts:Date.now() };
   orders[id] = rec;
-  pendingH.push({path:"orders", op:"set", id:id, rec:rec});
-  flushH();
+  pendingKV.push({path:"orders", op:"set", id:id, rec:rec});
+  flushKV();
   $("ordN").value = "";
   renderOrders();
   toast("Bestellung gespeichert: "+n+" Flyer ✓");
@@ -568,8 +674,8 @@ function addOrder(){
 window.__delOrd = function(id){
   if(!orders[id]) return;
   delete orders[id];
-  pendingH.push({path:"orders", op:"del", id:id});
-  flushH();
+  pendingKV.push({path:"orders", op:"del", id:id});
+  flushKV();
   renderOrders();
   toast("Bestellung gelöscht");
 };
@@ -581,20 +687,72 @@ function renderOrders(){
   const uf = usedFlyers();
   const left = ordered - uf.used;
   $("ordSummary").innerHTML = ordered > 0
-    ? 'Bestellt: <b style="color:var(--ink)">'+ordered+'</b> · Verteilt: <b style="color:var(--ink)">'+uf.used+'</b> · Übrig: <b style="color:'+(left<0?'#C0392B':'var(--ok)')+';font-size:15px">'+left+'</b>'
+    ? 'Bestellt: <b style="color:var(--ink)">'+ordered+'</b> · Verteilt: <b style="color:var(--ink)">'+uf.used+'</b> · Übrig: <b style="color:'+(left<0?'var(--bad)':'var(--ok)')+';font-size:15px">'+left+'</b>'
     : 'Noch keine Bestellung eingetragen.';
-  $("ordList").innerHTML = list.length === 0 ? "" :
+  $("ordList").innerHTML = list.length===0 ? "" :
     '<table><tr><th>Datum</th><th>Anzahl</th><th></th></tr>'+
     list.map(o=>'<tr><td>'+fmtDayFull(o.day)+'</td><td style="text-align:right;font-weight:700">'+o.n+'</td><td style="text-align:right"><button class="give-del" onclick="window.__delOrd(\''+o.id+'\')">✕</button></td></tr>').join("")+
     "</table>";
 }
+let giveByTouched = false;
+function syncGiveBy(){ // Personen-Auswahl im Abgegeben-Formular (bewusste Auswahl bleibt erhalten)
+  const sel = $("giveBy");
+  const prev = sel.value;
+  sel.innerHTML = userIds().map(id=>'<option value="'+id+'">'+esc(uname(id))+'</option>').join("") +
+    '<option value="">Ohne Zuordnung</option>';
+  if(giveByTouched && (prev === "" || users[prev])) sel.value = prev;
+  else if(me) sel.value = me;
+}
+function addHandout(){
+  const name = $("giveName").value.trim();
+  const n = Math.min(9999, Math.max(1, parseInt($("giveN").value,10) || 1));
+  const day = $("giveDate").value || dayKey(Date.now());
+  const by = $("giveBy").value || null;
+  if(!name){ toast("Bitte eingeben, an wen"); $("giveName").focus(); return; }
+  const id = uid();
+  const rec = { name:name, n:n, day:day, ts:Date.now() };
+  if(by) rec.by = by;
+  handouts[id] = rec;
+  pendingKV.push({path:"handouts", op:"set", id:id, rec:rec});
+  flushKV();
+  $("giveName").value = ""; $("giveN").value = 1;
+  renderGive();
+  toast("Gespeichert: "+n+" Flyer an "+name+" ✓");
+}
+window.__delHand = function(id){
+  if(!handouts[id]) return;
+  delete handouts[id];
+  pendingKV.push({path:"handouts", op:"del", id:id});
+  flushKV();
+  renderGive();
+  toast("Eintrag gelöscht");
+};
+function renderGive(){
+  if(!$("giveDate").value) $("giveDate").value = dayKey(Date.now());
+  const list = Object.keys(handouts).map(k=>Object.assign({id:k}, handouts[k]))
+    .sort((a,b)=> a.day===b.day ? b.ts-a.ts : (a.day<b.day?1:-1));
+  const total = list.reduce((s,h)=>s+(h.n||0),0);
+  $("giveTotal").textContent = list.length ? "· "+total+" Flyer gesamt" : "";
+  $("giveList").innerHTML = list.length===0
+    ? '<div class="empty">Noch keine Einträge. Trage oben ein, wem du Flyer gegeben hast – z. B. einem Laden oder Bekannten.</div>'
+    : '<table><tr><th>An wen</th><th>Von</th><th>Datum</th><th>Flyer</th><th></th></tr>'+
+      list.map(h=>'<tr><td style="font-weight:600">'+esc(h.name)+'</td><td>'+
+        (h.by ? '<span style="color:'+ucolor(h.by)+';font-weight:700">'+esc(uname(h.by))+'</span>' : '–')+
+        '</td><td>'+fmtDayFull(h.day)+'</td><td style="text-align:right;font-weight:700">'+h.n+'</td><td style="text-align:right"><button class="give-del" onclick="window.__delHand(\''+h.id+'\')">✕</button></td></tr>').join("")+
+      "</table>";
+}
 
-/* ================= Karte ================= */
+/* ============================================================
+   7) Karte
+   ============================================================ */
 function renderAll(){
   renderPins();
   updateCounters();
   renderGive();
   renderOrders();
+  renderStatsIfVisible();
+}
+function renderStatsIfVisible(){
   if($("view-stats").style.display !== "none") renderStats();
 }
 function initMap(){
@@ -620,61 +778,58 @@ function centerOnMe(){
   map.setView([myPos.lat,myPos.lng], Math.max(map.getZoom(), 16), {animate:true});
   setTimeout(()=>{ progMove = false; }, 450);
 }
-function pinStyle(pin, person){
-  const col = PEOPLE[person].color;
-  const isToday = ageDays(pin.ts) === 0;
+function pinStyle(pin, owner){
+  const col = ucolor(owner);
+  const today = isToday(pin.ts);
   return {
-    radius: isToday ? 7 : 6,
+    radius: today ? 7 : 6,
     color: col, weight: 2,
-    opacity: isToday ? 1 : 0.65,
+    opacity: today ? 1 : 0.65,
     fillColor: pin.t==="s" ? "#98A3A0" : col,
-    fillOpacity: isToday ? 0.9 : 0.5
+    fillOpacity: today ? 0.9 : 0.5
   };
+}
+function tourLabel(owner, tourId){
+  const t = (data.tours[owner]||[]).find(x=>x.id===tourId);
+  if(t) return fmtDayFull(dayKey(t.startTs || t.ts));
+  return activeTour && tourId===activeTour.id ? "läuft gerade" : "–";
 }
 function renderPins(){
   pinLayer.clearLayers();
   trackLayer.clearLayers();
-  // GPS-Tracks (feine Linien)
-  for(const p of ["rico","susi"]){
-    const trs = data.tracks[p] || {};
+  const heatPts = [];
+  for(const owner of dataOwners()){
+    const col = ucolor(owner);
+    // GPS-Tracks
+    const trs = data.tracks[owner] || {};
     for(const tid of Object.keys(trs)){
       const pts = trs[tid];
       if(Array.isArray(pts) && pts.length > 1)
-        L.polyline(pts, {color:PEOPLE[p].color, weight:3, opacity:0.45, lineJoin:"round"}).addTo(trackLayer);
+        L.polyline(pts, {color:col, weight:3, opacity:0.45, lineJoin:"round"}).addTo(trackLayer);
     }
-  }
-  // Pins
-  const heatPts = [];
-  for(const p of ["rico","susi"]){
-    for(const pin of data.pins[p]){
-      const m = L.circleMarker([pin.lat,pin.lng], pinStyle(pin, p));
-      const own = p === me;
-      const col = PEOPLE[p].color;
+    // Pins
+    for(const pin of (data.pins[owner]||[])){
+      const m = L.circleMarker([pin.lat,pin.lng], pinStyle(pin, owner));
+      const own = owner === me;
       m.bindPopup(
-        '<b style="color:'+col+'">'+PEOPLE[p].name+'</b> · '+
+        '<b style="color:'+col+'">'+esc(uname(owner))+'</b> · '+
         (pin.t==="s" ? "Übersprungen" : "Eingeworfen: "+(pin.n||1)+" Flyer") +
         (pin.m ? " (nachgetragen)" : "") + (pin.a ? " (auto)" : "") +
         "<br>" + fmtTime(pin.ts) + " Uhr" +
-        (pin.tour ? "<br>Tour: " + tourLabel(p, pin.tour) : "") +
+        (pin.tour ? "<br>Tour: " + tourLabel(owner, pin.tour) : "") +
         (own ? '<br><button class="pop-del" onclick="window.__delPin(\''+pin.id+'\')">Pin löschen</button>' : "")
       );
       m.addTo(pinLayer);
       if(pin.t==="f") heatPts.push([pin.lat, pin.lng, Math.min(2, 0.6 + (pin.n||1)*0.3)]);
     }
   }
-  // Heatmap
   if(heatLayer){ map.removeLayer(heatLayer); heatLayer = null; }
   if(heatOn && typeof L.heatLayer === "function" && heatPts.length){
     heatLayer = L.heatLayer(heatPts, {radius:22, blur:16, maxZoom:18, minOpacity:0.25}).addTo(map);
   }
 }
-function tourLabel(person, tourId){
-  const t = (data.tours[person]||[]).find(x=>x.id===tourId);
-  if(t) return fmtDayFull(dayKey(t.startTs || t.ts));
-  return activeTour && tourId===activeTour.id ? "läuft gerade" : "–";
-}
 window.__delPin = function(id){
-  const arr = data.pins[me];
+  const arr = data.pins[me] || [];
   const i = arr.findIndex(p=>p.id===id);
   if(i<0) return;
   arr.splice(i,1);
@@ -685,29 +840,21 @@ window.__delPin = function(id){
   toast("Pin gelöscht");
 };
 
-/* ================= Nachtrag-Modus ================= */
+/* ============================================================
+   8) Nachtrag-Modus
+   ============================================================ */
 function onMapClick(e){
   if(!backfill || !me) return;
   const lat = +e.latlng.lat.toFixed(6), lng = +e.latlng.lng.toFixed(6);
-  const n = getQty();
   const html =
     '<b>Pin nachtragen?</b><br>'+
-    '<button class="pop-add" style="background:'+PEOPLE[me].color+'" onclick="window.__bf('+lat+','+lng+',\'f\')">📬 Eingeworfen ('+n+')</button>'+
+    '<button class="pop-add" style="background:'+ucolor(me)+'" onclick="window.__bf('+lat+','+lng+',\'f\')">📬 Eingeworfen ('+getQty()+')</button>'+
     '<button class="pop-add" style="background:#98A3A0" onclick="window.__bf('+lat+','+lng+',\'s\')">🚫 Übersprungen</button>';
   L.popup().setLatLng(e.latlng).setContent(html).openOn(map);
 }
 window.__bf = function(lat, lng, type){
   map.closePopup();
-  const n = type==="f" ? getQty() : 1;
-  const pin = { id:uid(), lat:lat, lng:lng, t:type, n:n, m:true, ts:Date.now() };
-  if(activeTour) pin.tour = activeTour.id;
-  data.pins[me].push(pin);
-  session.push(pin.id);
-  if(type==="f") $("qVal").value = 1;
-  renderPins(); updateCounters();
-  markDirtyAndPersist("pins");
-  vibrate(60);
-  toast(type==="f" ? "Nachgetragen: "+n+" Flyer ✓" : "Nachgetragen: Übersprungen ✓");
+  createPin(type, {lat:lat, lng:lng}, true);
 };
 function toggleBackfill(){
   backfill = !backfill;
@@ -717,7 +864,9 @@ function toggleBackfill(){
   if(backfill){ setFollow(false); toast("Nachtrag-Modus: auf die Karte tippen"); }
 }
 
-/* ================= GPS ================= */
+/* ============================================================
+   9) GPS
+   ============================================================ */
 function startGPS(){
   if(!navigator.geolocation){
     showGpsBanner("Dieses Gerät unterstützt kein GPS im Browser.");
@@ -747,17 +896,18 @@ function onPos(ev){
     map.panTo([myPos.lat,myPos.lng], {animate:true});
     setTimeout(()=>{ progMove = false; }, 350);
   }
-  // Track aufzeichnen (nur während aktiver Tour)
-  if(activeTour && me && myAcc < 60){
-    const trs = data.tracks[me][activeTour.id] || (data.tracks[me][activeTour.id] = []);
-    const last = trs.length ? {lat:trs[trs.length-1][0], lng:trs[trs.length-1][1]} : null;
-    if(!last || distM(last, myPos) >= TRACK_MIN_M){
-      trs.push([+myPos.lat.toFixed(6), +myPos.lng.toFixed(6)]);
-      dirty.tracks = true; // wird vom Hintergrund-Sync gesendet
-      if(trs.length % 5 === 0) renderPins();
-    }
-  }
+  recordTrack();
   updateButtons();
+}
+function recordTrack(){
+  if(!activeTour || !me || myAcc >= 60) return;
+  const trs = data.tracks[me][activeTour.id] || (data.tracks[me][activeTour.id] = []);
+  const last = trs.length ? {lat:trs[trs.length-1][0], lng:trs[trs.length-1][1]} : null;
+  if(!last || distM(last, myPos) >= TRACK_MIN_M){
+    trs.push([+myPos.lat.toFixed(6), +myPos.lng.toFixed(6)]);
+    dirty.tracks = true;                      // sendet der Hintergrund-Sync
+    if(trs.length % 5 === 0) renderPins();
+  }
 }
 function onPosErr(err){
   if(err.code === 1) showGpsBanner("Standort-Zugriff verweigert. Bitte in den Browser-Einstellungen erlauben und neu laden.");
@@ -767,22 +917,28 @@ function onPosErr(err){
 function showGpsBanner(msg){ const b=$("gpsBanner"); b.textContent=msg; b.style.display="block"; }
 function hideGpsBanner(){ $("gpsBanner").style.display="none"; }
 
-/* ================= Pins setzen ================= */
+/* ============================================================
+   10) Pins setzen
+   ============================================================ */
 function getQty(){ return Math.min(999, Math.max(1, parseInt($("qVal").value,10) || 1)); }
-function addPin(type){
-  if(!me || !myPos) return;
-  const now = Date.now();
-  if(now < cooldownUntil) return;
+function createPin(type, pos, isBackfill){
+  if(!me || !pos) return;
   const n = type==="f" ? getQty() : 1;
-  const pin = { id:uid(), lat:+myPos.lat.toFixed(6), lng:+myPos.lng.toFixed(6), t:type, n:n, ts:now };
+  const pin = { id:uid(), lat:+pos.lat.toFixed(6), lng:+pos.lng.toFixed(6), t:type, n:n, ts:Date.now() };
+  if(isBackfill) pin.m = true;
   if(activeTour) pin.tour = activeTour.id;
   data.pins[me].push(pin);
   session.push(pin.id);
   if(type==="f") $("qVal").value = 1;
   renderPins(); updateCounters();
   markDirtyAndPersist("pins");
-  vibrate(90);
-  toast(type==="f" ? (n>1 ? n+" Flyer gespeichert ✓" : "Eingeworfen gespeichert ✓") : "Übersprungen gespeichert ✓");
+  vibrate(isBackfill ? 60 : 90);
+  const what = type==="f" ? (n>1 ? n+" Flyer" : "Eingeworfen") : "Übersprungen";
+  toast((isBackfill ? "Nachgetragen: " : "")+what+" gespeichert ✓");
+}
+function addPin(type){
+  if(Date.now() < cooldownUntil) return;
+  createPin(type, myPos, false);
   startCooldown();
 }
 function startCooldown(){
@@ -815,18 +971,18 @@ function undo(){
   toast("Letzter Pin entfernt ↩");
 }
 
-/* ================= Touren ================= */
-function tourPins(person, tourId){
-  return data.pins[person].filter(p=>p.tour === tourId);
-}
-function calcTour(person, tourId, startTs, endTs){
-  const pinsOf = tourPins(person, tourId);
+/* ============================================================
+   11) Touren
+   ============================================================ */
+function tourPins(owner, tourId){ return (data.pins[owner]||[]).filter(p=>p.tour === tourId); }
+function calcTour(owner, tourId, startTs, endTs){
+  const pinsOf = tourPins(owner, tourId);
   const f = pinsOf.filter(p=>p.t==="f");
   const fly = f.reduce((s,p)=>s+pinFly(p),0);
   const skip = pinsOf.length - f.length;
   const dur = (startTs && endTs) ? Math.max(0, endTs - startTs) : null;
   let dist = 0;
-  const tr = (data.tracks[person]||{})[tourId];
+  const tr = (data.tracks[owner]||{})[tourId];
   if(Array.isArray(tr) && tr.length > 1){
     for(let i=1;i<tr.length;i++) dist += distM({lat:tr[i-1][0],lng:tr[i-1][1]},{lat:tr[i][0],lng:tr[i][1]});
   }else{
@@ -835,9 +991,9 @@ function calcTour(person, tourId, startTs, endTs){
   }
   const mins = dur ? dur/60000 : null;
   return {
-    pins: f.length, fly: fly, skip: skip, dur: dur, dist: dist,
-    pinsPerMin: (mins && mins > 0.5) ? (f.length/mins) : null,
-    flyPerMin:  (mins && mins > 0.5) ? (fly/mins) : null
+    pins:f.length, fly:fly, skip:skip, dur:dur, dist:dist,
+    pinsPerMin:(mins && mins > 0.5) ? (f.length/mins) : null,
+    flyPerMin:(mins && mins > 0.5) ? (fly/mins) : null
   };
 }
 function statsHTML(s, startTs, endTs){
@@ -850,15 +1006,13 @@ function statsHTML(s, startTs, endTs){
     '<div class="kv"><span>Flyer pro Minute</span><b>'+(s.flyPerMin!=null ? s.flyPerMin.toFixed(1).replace(".",",") : "–")+'</b></div>';
 }
 function saveActiveTourLS(){
-  try{
-    if(activeTour) localStorage.setItem("flyer-activetour", JSON.stringify(activeTour));
-    else localStorage.removeItem("flyer-activetour");
-  }catch(e){}
+  if(activeTour) ls("flyer-activetour", JSON.stringify(activeTour));
+  else ls("flyer-activetour", null);
 }
 function toggleTour(){
   if(!me) return;
   if(!activeTour){
-    activeTour = { id: uid(), startTs: Date.now() };
+    activeTour = { id:uid(), startTs:Date.now() };
     saveActiveTourLS();
     updateTourUI();
     toast("Tour gestartet ▶ Viel Erfolg!");
@@ -870,15 +1024,14 @@ function toggleTour(){
   }
 }
 function saveTour(){
-  if(!activeTour) { $("tourOverlay").classList.add("hidden"); return; }
+  if(!activeTour){ $("tourOverlay").classList.add("hidden"); return; }
   const endTs = Date.now();
   const s = calcTour(me, activeTour.id, activeTour.startTs, endTs);
   const val = Math.max(0, parseInt($("tourFlyers").value,10) || 0);
-  const tour = {
-    id: activeTour.id, startTs: activeTour.startTs, ts: endTs,
-    pins: s.pins, flyers: val, skip: s.skip, dist: Math.round(s.dist)
-  };
-  data.tours[me].push(tour);
+  data.tours[me].push({
+    id:activeTour.id, startTs:activeTour.startTs, ts:endTs,
+    pins:s.pins, flyers:val, skip:s.skip, dist:Math.round(s.dist)
+  });
   activeTour = null;
   saveActiveTourLS();
   session = [];
@@ -887,7 +1040,7 @@ function saveTour(){
   markDirtyAndPersist("tours");
   if(dirty.tracks) persist("tracks");
   toast("Tour gespeichert: "+val+" Flyer 🏁");
-  renderStats();
+  renderStatsIfVisible();
 }
 function updateTourUI(){
   $("btnTour").textContent = activeTour ? "🏁 Tour beenden" : "▶ Tour starten";
@@ -901,19 +1054,18 @@ function tickTourStrip(){
 }
 setInterval(tickTourStrip, 5000);
 
-/* Tour-Detail */
-window.__tourDetail = function(person, id){
-  const t = (data.tours[person]||[]).find(x=>x.id===id);
+window.__tourDetail = function(owner, id){
+  const t = (data.tours[owner]||[]).find(x=>x.id===id);
   if(!t) return;
-  const s = calcTour(person, id, t.startTs, t.ts);
-  $("detailTitle").innerHTML = '<span style="color:'+PEOPLE[person].color+'">'+PEOPLE[person].name+'</span> · Tour vom '+fmtDayFull(dayKey(t.startTs||t.ts));
+  const s = calcTour(owner, id, t.startTs, t.ts);
+  $("detailTitle").innerHTML = '<span style="color:'+ucolor(owner)+'">'+esc(uname(owner))+'</span> · Tour vom '+fmtDayFull(dayKey(t.startTs||t.ts));
   $("detailBody").innerHTML =
     '<div class="kv"><span>Flyer (eingetragen)</span><b>'+t.flyers+'</b></div>' +
     statsHTML(s, t.startTs, t.ts) +
-    (t.migrated ? '<p style="margin-top:10px">Diese Tour wurde beim Update automatisch aus deinen bestehenden Pins erstellt.</p>' : '');
+    (t.migrated ? '<p style="margin-top:10px">Diese Tour wurde beim Update automatisch aus bestehenden Pins erstellt.</p>' : '');
   $("detailOverlay").classList.remove("hidden");
   $("detailMap").onclick = ()=>{
-    const pts = tourPins(person, id).map(p=>[p.lat,p.lng]);
+    const pts = tourPins(owner, id).map(p=>[p.lat,p.lng]);
     $("detailOverlay").classList.add("hidden");
     if(pts.length === 0){ toast("Keine Pins zu dieser Tour gefunden"); return; }
     showTab("map");
@@ -924,27 +1076,25 @@ window.__tourDetail = function(person, id){
   };
 };
 
-/* ================= Migration alter Daten (einmalig pro Person) ================= */
+/* Einmalig pro Person: alte Pins ohne Tour einer Tour zuordnen */
 function migrate(){
   if(!me || !loaded) return;
-  let flag = null;
-  try{ flag = localStorage.getItem("flyer-migrated-v3-"+me); }catch(e){}
-  if(flag) return;
+  if(ls("flyer-migrated-v3-"+me)) return;
   const untagged = data.pins[me].filter(p=>!p.tour);
   if(untagged.length > 0){
     const minTs = Math.min.apply(null, untagged.map(p=>p.ts));
     const maxTs = Math.max.apply(null, untagged.map(p=>p.ts));
-    let target = null;
+    let target;
     if(data.tours[me].length > 0){
-      target = data.tours[me][data.tours[me].length-1];           // jüngste vorhandene Tour
+      target = data.tours[me][data.tours[me].length-1];
       if(!target.startTs) target.startTs = minTs;
     }else{
       target = {
-        id: uid(), startTs: minTs, ts: maxTs,
-        pins: untagged.filter(p=>p.t==="f").length,
-        flyers: untagged.reduce((s,p)=>s+pinFly(p),0),
-        skip: untagged.filter(p=>p.t==="s").length,
-        migrated: true
+        id:uid(), startTs:minTs, ts:maxTs,
+        pins:untagged.filter(p=>p.t==="f").length,
+        flyers:untagged.reduce((s,p)=>s+pinFly(p),0),
+        skip:untagged.filter(p=>p.t==="s").length,
+        migrated:true
       };
       data.tours[me].push(target);
     }
@@ -953,127 +1103,138 @@ function migrate(){
     markDirtyAndPersist("tours");
     toast("Bestehende Pins wurden einer Tour zugeordnet ✓");
   }
-  try{ localStorage.setItem("flyer-migrated-v3-"+me, "1"); }catch(e){}
+  ls("flyer-migrated-v3-"+me, "1");
 }
 
-/* ================= Zähler ================= */
+/* ============================================================
+   12) Zähler & Statistik
+   ============================================================ */
 function updateCounters(){
   if(!me) return;
-  const today = dayKey(Date.now());
-  const todayFly = data.pins[me].reduce((s,p)=>s + (dayKey(p.ts)===today ? pinFly(p) : 0), 0);
+  const todayFly = (data.pins[me]||[]).reduce((s,p)=>s + (isToday(p.ts) ? pinFly(p) : 0), 0);
   $("cntToday").textContent = todayFly;
   tickTourStrip();
   updateButtons();
 }
-
-/* ================= Statistik ================= */
 function aggregate(){
-  const days = {};
-  const tot = { rico:{fly:0,pins:0,pinFly:0,skip:0,tours:0}, susi:{fly:0,pins:0,pinFly:0,skip:0,tours:0} };
-  for(const p of ["rico","susi"]){
-    for(const t of data.tours[p]){
-      tot[p].fly += t.flyers; tot[p].tours++;
+  const owners = dataOwners();
+  const days = {}, tot = {};
+  for(const o of owners){
+    tot[o] = {fly:0,pins:0,pinFly:0,skip:0,tours:0};
+    for(const t of (data.tours[o]||[])){
+      tot[o].fly += t.flyers; tot[o].tours++;
       const k = dayKey(t.startTs || t.ts);
-      days[k] = days[k] || {rico:{fly:0},susi:{fly:0}};
-      days[k][p].fly += t.flyers;
+      if(!days[k]) days[k] = {};
+      days[k][o] = (days[k][o]||0) + t.flyers;
     }
-    for(const pin of data.pins[p]){
-      if(pin.t==="f"){ tot[p].pins++; tot[p].pinFly += (pin.n||1); }
-      else tot[p].skip++;
+    for(const pin of (data.pins[o]||[])){
+      if(pin.t==="f"){ tot[o].pins++; tot[o].pinFly += (pin.n||1); }
+      else tot[o].skip++;
     }
   }
-  const keys = Object.keys(days).sort();
-  return { days, keys, tot };
+  return { days:days, keys:Object.keys(days).sort(), tot:tot, owners:owners };
 }
-function barChartSVG(keys, days){
+function chartLegend(owners){
+  return '<div class="legend">'+owners.map(o=>'<span><i style="background:'+ucolor(o)+'"></i>'+esc(uname(o))+'</span>').join("")+'</div>';
+}
+function barChartSVG(keys, days, owners){
   if(keys.length===0) return '<div class="empty">Noch keine Daten – schließe deine erste Tour ab.</div>';
   const W=340, H=170, padB=22, padL=4, padT=14;
   const shown = keys.slice(-14);
-  const maxV = Math.max(1, ...shown.map(k=>Math.max(days[k].rico.fly, days[k].susi.fly)));
+  const maxV = Math.max(1, ...shown.map(k=>Math.max(...owners.map(o=>days[k][o]||0))));
   const groupW = (W-padL*2)/shown.length;
-  const barW = Math.min(16, groupW*0.32);
+  const barW = Math.max(3, Math.min(16, (groupW*0.8)/owners.length));
+  const withLabels = owners.length <= 3;
   let s = '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">';
   shown.forEach((k,i)=>{
     const cx = padL + groupW*i + groupW/2;
-    const hR = (days[k].rico.fly/maxV)*(H-padB-padT);
-    const hS = (days[k].susi.fly/maxV)*(H-padB-padT);
-    if(days[k].rico.fly>0){
-      s += '<rect x="'+(cx-barW-1)+'" y="'+(H-padB-hR)+'" width="'+barW+'" height="'+hR+'" rx="3" fill="'+PEOPLE.rico.color+'"/>';
-      s += '<text x="'+(cx-barW/2-1)+'" y="'+(H-padB-hR-3)+'" font-size="8.5" font-weight="700" text-anchor="middle" fill="'+PEOPLE.rico.color+'">'+days[k].rico.fly+'</text>';
-    }
-    if(days[k].susi.fly>0){
-      s += '<rect x="'+(cx+1)+'" y="'+(H-padB-hS)+'" width="'+barW+'" height="'+hS+'" rx="3" fill="'+PEOPLE.susi.color+'"/>';
-      s += '<text x="'+(cx+barW/2+1)+'" y="'+(H-padB-hS-3)+'" font-size="8.5" font-weight="700" text-anchor="middle" fill="'+PEOPLE.susi.color+'">'+days[k].susi.fly+'</text>';
-    }
+    const x0 = cx - (owners.length*barW)/2;
+    owners.forEach((o,j)=>{
+      const v = days[k][o]||0;
+      if(v<=0) return;
+      const h = (v/maxV)*(H-padB-padT);
+      const x = x0 + j*barW;
+      s += '<rect x="'+x.toFixed(1)+'" y="'+(H-padB-h)+'" width="'+(barW-1)+'" height="'+h+'" rx="2.5" fill="'+ucolor(o)+'"/>';
+      if(withLabels) s += '<text x="'+(x+barW/2).toFixed(1)+'" y="'+(H-padB-h-3)+'" font-size="8.5" font-weight="700" text-anchor="middle" fill="'+ucolor(o)+'">'+v+'</text>';
+    });
     s += '<text x="'+cx+'" y="'+(H-7)+'" font-size="9" text-anchor="middle" fill="#6B7774">'+fmtDay(k)+'</text>';
   });
   s += '<line x1="0" y1="'+(H-padB)+'" x2="'+W+'" y2="'+(H-padB)+'" stroke="#DDE3E1"/>';
-  s += "</svg>";
-  return s;
+  return s + "</svg>";
 }
-function lineChartSVG(keys, days){
+function lineChartSVG(keys, days, owners){
   if(keys.length===0) return "";
   const W=340, H=150, padB=22, padL=4, padT=10;
-  let cr=0, cs=0;
-  const pts = keys.map(k=>{ cr+=days[k].rico.fly; cs+=days[k].susi.fly; return {r:cr, s:cs}; });
-  const maxV = Math.max(1, cr, cs);
+  const cum = {};
+  for(const o of owners) cum[o] = [];
+  let maxV = 1;
+  keys.forEach(k=>{
+    for(const o of owners){
+      const prev = cum[o].length ? cum[o][cum[o].length-1] : 0;
+      const v = prev + (days[k][o]||0);
+      cum[o].push(v);
+      if(v > maxV) maxV = v;
+    }
+  });
   const x = i => keys.length===1 ? W/2 : padL + (W-padL*2)*(i/(keys.length-1));
   const y = v => (H-padB) - (v/maxV)*(H-padB-padT);
-  const path = sel => pts.map((p,i)=>(i?"L":"M")+x(i).toFixed(1)+","+y(p[sel]).toFixed(1)).join(" ");
   let s = '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">';
   s += '<line x1="0" y1="'+(H-padB)+'" x2="'+W+'" y2="'+(H-padB)+'" stroke="#DDE3E1"/>';
-  s += '<path d="'+path("r")+'" fill="none" stroke="'+PEOPLE.rico.color+'" stroke-width="2.5" stroke-linecap="round"/>';
-  s += '<path d="'+path("s")+'" fill="none" stroke="'+PEOPLE.susi.color+'" stroke-width="2.5" stroke-linecap="round"/>';
-  const last = pts[pts.length-1];
-  s += '<text x="'+(W-4)+'" y="'+(y(last.r)-4)+'" font-size="10" font-weight="800" text-anchor="end" fill="'+PEOPLE.rico.color+'">'+last.r+'</text>';
-  s += '<text x="'+(W-4)+'" y="'+(y(last.s)+12)+'" font-size="10" font-weight="800" text-anchor="end" fill="'+PEOPLE.susi.color+'">'+last.s+'</text>';
+  owners.forEach((o,j)=>{
+    const path = cum[o].map((v,i)=>(i?"L":"M")+x(i).toFixed(1)+","+y(v).toFixed(1)).join(" ");
+    s += '<path d="'+path+'" fill="none" stroke="'+ucolor(o)+'" stroke-width="2.5" stroke-linecap="round"/>';
+    const lastV = cum[o][cum[o].length-1];
+    if(lastV > 0) s += '<text x="'+(W-4)+'" y="'+(y(lastV) + (j%2 ? 12 : -4))+'" font-size="10" font-weight="800" text-anchor="end" fill="'+ucolor(o)+'">'+lastV+'</text>';
+  });
   s += '<text x="'+padL+'" y="'+(H-7)+'" font-size="9" fill="#6B7774">'+fmtDay(keys[0])+'</text>';
   s += '<text x="'+(W-padL)+'" y="'+(H-7)+'" font-size="9" text-anchor="end" fill="#6B7774">'+fmtDay(keys[keys.length-1])+'</text>';
-  s += "</svg>";
-  return s;
+  return s + "</svg>";
 }
 function renderStats(){
   const v = $("view-stats");
-  const { days, keys, tot } = aggregate();
+  const agg = aggregate();
   const today = dayKey(Date.now());
-  const todayR = days[today] ? days[today].rico.fly : 0;
-  const todayS = days[today] ? days[today].susi.fly : 0;
   const hList = Object.keys(handouts).map(k=>handouts[k]);
   const hFly = hList.reduce((s,h)=>s+(h.n||0),0);
-
+  const hByUser = {};
+  for(const h of hList) if(h.by) hByUser[h.by] = (hByUser[h.by]||0) + (h.n||0);
   const ordered = orderedFlyers();
   const uf = usedFlyers();
   const left = ordered > 0 ? (ordered - uf.used) : null;
+  const pinsTotal = agg.owners.reduce((s,o)=>s+agg.tot[o].pins,0);
+  const pinFlyTotal = agg.owners.reduce((s,o)=>s+agg.tot[o].pinFly,0);
+  const skipTotal = agg.owners.reduce((s,o)=>s+agg.tot[o].skip,0);
+  const perUserSub = f => agg.owners.filter(o=>f(agg.tot[o])>0).map(o=>esc(uname(o))+" "+f(agg.tot[o])).join(" · ") || "–";
 
-  const allTours = [].concat(
-      data.tours.rico.map(t=>({t:t, p:"rico"})),
-      data.tours.susi.map(t=>({t:t, p:"susi"})))
-    .sort((a,b)=>(b.t.startTs||b.t.ts)-(a.t.startTs||a.t.ts)).slice(0,15);
+  const allTours = [];
+  for(const o of agg.owners) for(const t of (data.tours[o]||[])) allTours.push({t:t, o:o});
+  allTours.sort((a,b)=>(b.t.startTs||b.t.ts)-(a.t.startTs||a.t.ts));
 
-  const openHint = me && activeTour
-    ? '<div class="empty">Hinweis: Deine laufende Tour zählt erst nach „Tour beenden“ in die Flyer-Statistik.</div>' : "";
+  const userCards = agg.owners.map(o=>{
+    const todayFly = (agg.days[today]||{})[o] || 0;
+    return '<div class="card" style="border-top:3px solid '+ucolor(o)+'">'+
+      '<div class="label">'+esc(uname(o))+' · Flyer gesamt</div>'+
+      '<div class="big" style="color:'+ucolor(o)+'">'+agg.tot[o].fly+'</div>'+
+      '<div class="sub">heute: '+todayFly+' · Touren: '+agg.tot[o].tours+'</div></div>';
+  }).join("");
 
   v.innerHTML =
-    '<div class="stat-cards">' +
-      '<div class="card rico"><div class="label">Rico · Flyer gesamt</div><div class="big">'+tot.rico.fly+'</div><div class="sub">heute: '+todayR+' · Touren: '+tot.rico.tours+'</div></div>' +
-      '<div class="card susi"><div class="label">Susi · Flyer gesamt</div><div class="big">'+tot.susi.fly+'</div><div class="sub">heute: '+todayS+' · Touren: '+tot.susi.tours+'</div></div>' +
-      '<div class="card"><div class="label">Pins „Eingeworfen“</div><div class="big">'+(tot.rico.pins+tot.susi.pins)+'</div><div class="sub">= '+(tot.rico.pinFly+tot.susi.pinFly)+' Flyer · Rico '+tot.rico.pins+' · Susi '+tot.susi.pins+'</div></div>' +
-      '<div class="card"><div class="label">Übersprungen</div><div class="big">'+(tot.rico.skip+tot.susi.skip)+'</div><div class="sub">Rico '+tot.rico.skip+' · Susi '+tot.susi.skip+'</div></div>' +
-      '<div class="card"><div class="label">Persönlich abgegeben</div><div class="big">'+hFly+'</div><div class="sub">'+hList.length+(hList.length===1?' Eintrag':' Einträge')+'</div></div>' +
-      '<div class="card"><div class="label">Bestand übrig</div><div class="big"'+(left!=null && left<0 ? ' style="color:#C0392B"' : '')+'>'+(left!=null ? left : "–")+'</div><div class="sub">'+(ordered>0 ? 'von '+ordered+' bestellt · '+uf.used+' verteilt' : 'Bestellung im Tab „Bestand“ eintragen')+'</div></div>' +
+    '<div class="stat-cards">' + userCards +
+      '<div class="card"><div class="label">Pins „Eingeworfen“</div><div class="big">'+pinsTotal+'</div><div class="sub">= '+pinFlyTotal+' Flyer · '+perUserSub(t=>t.pins)+'</div></div>' +
+      '<div class="card"><div class="label">Übersprungen</div><div class="big">'+skipTotal+'</div><div class="sub">'+perUserSub(t=>t.skip)+'</div></div>' +
+      '<div class="card"><div class="label">Persönlich abgegeben</div><div class="big">'+hFly+'</div><div class="sub">'+
+        (Object.keys(hByUser).length ? Object.keys(hByUser).map(id=>esc(uname(id))+" "+hByUser[id]).join(" · ") : hList.length+(hList.length===1?' Eintrag':' Einträge'))+'</div></div>' +
+      '<div class="card"><div class="label">Bestand übrig</div><div class="big"'+(left!=null && left<0 ? ' style="color:var(--bad)"' : '')+'>'+(left!=null ? left : "–")+'</div><div class="sub">'+(ordered>0 ? 'von '+ordered+' bestellt · '+uf.used+' verteilt' : 'Bestellung im Tab „Bestand“ eintragen')+'</div></div>' +
     '</div>' +
-    openHint +
+    (me && activeTour ? '<div class="empty">Hinweis: Deine laufende Tour zählt erst nach „Tour beenden“ in die Flyer-Statistik.</div>' : "") +
     '<div class="section-title">Flyer pro Tag</div>' +
-    '<div class="chart-card">' +
-      '<div class="legend"><span><i style="background:'+PEOPLE.rico.color+'"></i>Rico</span><span><i style="background:'+PEOPLE.susi.color+'"></i>Susi</span></div>' +
-      barChartSVG(keys, days) +
-    '</div>' +
-    (keys.length ? '<div class="section-title">Gesamt im Zeitverlauf</div><div class="chart-card">'+lineChartSVG(keys, days)+'</div>' : "") +
+    '<div class="chart-card">' + chartLegend(agg.owners) + barChartSVG(agg.keys, agg.days, agg.owners) + '</div>' +
+    (agg.keys.length ? '<div class="section-title">Gesamt im Zeitverlauf</div><div class="chart-card">'+lineChartSVG(agg.keys, agg.days, agg.owners)+'</div>' : "") +
     '<div class="section-title">Touren (antippen für Details)</div>' +
     '<div class="chart-card">' +
       (allTours.length === 0 ? '<div class="empty">Noch keine Touren gespeichert.</div>' :
       '<table><tr><th>Wer</th><th>Wann</th><th>Dauer</th><th>Flyer</th></tr>' +
-        allTours.map(x=>'<tr class="rowbtn" onclick="window.__tourDetail(\''+x.p+'\',\''+x.t.id+'\')"><td style="color:'+PEOPLE[x.p].color+';font-weight:700">'+PEOPLE[x.p].name+'</td><td>'+fmtTime(x.t.startTs||x.t.ts)+'</td><td>'+fmtDur(x.t.startTs?(x.t.ts-x.t.startTs):null)+'</td><td style="text-align:right;font-weight:700">'+x.t.flyers+'</td></tr>').join("") +
+        allTours.slice(0,15).map(x=>'<tr class="rowbtn" onclick="window.__tourDetail(\''+x.o+'\',\''+x.t.id+'\')"><td style="color:'+ucolor(x.o)+';font-weight:700">'+esc(uname(x.o))+'</td><td>'+fmtTime(x.t.startTs||x.t.ts)+'</td><td>'+fmtDur(x.t.startTs?(x.t.ts-x.t.startTs):null)+'</td><td style="text-align:right;font-weight:700">'+x.t.flyers+'</td></tr>').join("") +
       "</table>") +
     '</div>' +
     '<div class="section-title">Export</div>' +
@@ -1085,10 +1246,10 @@ function renderStats(){
     '</div>' +
     '<div class="section-title">Einrichtung</div>' +
     '<div class="export-row">' +
-      '<button class="smallbtn" id="copyLink">Link für Susi kopieren</button>' +
+      '<button class="smallbtn" id="copyLink">Einladungs-Link kopieren</button>' +
       '<button class="smallbtn" id="changeDb">Datenbank ändern</button>' +
     '</div>' +
-    '<button class="linkbtn" id="switchWho">Person wechseln (aktuell: '+(me?PEOPLE[me].name:"–")+')</button>';
+    '<button class="linkbtn" id="switchWho">Person wechseln (aktuell: '+(me?esc(uname(me)):"–")+')</button>';
 
   $("expPins").onclick = exportPinsCSV;
   $("expTours").onclick = exportToursCSV;
@@ -1100,10 +1261,12 @@ function renderStats(){
     $("setupErr").textContent = "";
     $("setupOverlay").classList.remove("hidden");
   };
-  $("switchWho").onclick = ()=>$("whoOverlay").classList.remove("hidden");
+  $("switchWho").onclick = ()=>{ renderWho(); $("whoOverlay").classList.remove("hidden"); };
 }
 
-/* ================= Export ================= */
+/* ============================================================
+   13) Export & Teilen
+   ============================================================ */
 function download(name, text, mime){
   const blob = new Blob([text], {type:mime});
   const url = URL.createObjectURL(blob);
@@ -1112,60 +1275,46 @@ function download(name, text, mime){
   document.body.appendChild(a); a.click();
   setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 800);
 }
+function csvName(id){ return uname(id).replace(/;/g,","); }
 function exportPinsCSV(){
   let s = "person;typ;nachgetragen;anzahl;lat;lng;zeitpunkt;tour_id\n";
-  for(const p of ["rico","susi"]) for(const pin of data.pins[p])
-    s += PEOPLE[p].name+";"+(pin.t==="f"?"eingeworfen":"uebersprungen")+";"+(pin.m?"ja":"nein")+";"+(pin.t==="f"?(pin.n||1):0)+";"+pin.lat+";"+pin.lng+";"+new Date(pin.ts).toISOString()+";"+(pin.tour||"")+"\n";
+  for(const o of dataOwners()) for(const pin of (data.pins[o]||[]))
+    s += csvName(o)+";"+(pin.t==="f"?"eingeworfen":"uebersprungen")+";"+(pin.m?"ja":"nein")+";"+(pin.t==="f"?(pin.n||1):0)+";"+pin.lat+";"+pin.lng+";"+new Date(pin.ts).toISOString()+";"+(pin.tour||"")+"\n";
   download("flyer-pins.csv", s, "text/csv");
 }
 function exportToursCSV(){
   let s = "person;start;ende;dauer_min;pins;flyer;strecke_m;tour_id\n";
-  for(const p of ["rico","susi"]) for(const t of data.tours[p])
-    s += PEOPLE[p].name+";"+(t.startTs?new Date(t.startTs).toISOString():"")+";"+new Date(t.ts).toISOString()+";"+(t.startTs?Math.round((t.ts-t.startTs)/60000):"")+";"+t.pins+";"+t.flyers+";"+(t.dist||"")+";"+t.id+"\n";
+  for(const o of dataOwners()) for(const t of (data.tours[o]||[]))
+    s += csvName(o)+";"+(t.startTs?new Date(t.startTs).toISOString():"")+";"+new Date(t.ts).toISOString()+";"+(t.startTs?Math.round((t.ts-t.startTs)/60000):"")+";"+t.pins+";"+t.flyers+";"+(t.dist||"")+";"+t.id+"\n";
   download("flyer-touren.csv", s, "text/csv");
 }
 function exportHandoutsCSV(){
-  let s = "an_wen;datum;anzahl\n";
+  let s = "an_wen;von;datum;anzahl\n";
   for(const k of Object.keys(handouts)){
     const h = handouts[k];
-    s += '"'+String(h.name).replace(/"/g,'""')+'";'+h.day+";"+h.n+"\n";
+    s += '"'+String(h.name).replace(/"/g,'""')+'";'+(h.by?csvName(h.by):"")+";"+h.day+";"+h.n+"\n";
   }
   download("flyer-abgegeben.csv", s, "text/csv");
 }
 function exportGPX(){
   let s = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Flyer-Tracker" xmlns="http://www.topografix.com/GPX/1/1">\n';
-  for(const p of ["rico","susi"]) for(const pin of data.pins[p])
-    s += '  <wpt lat="'+pin.lat+'" lon="'+pin.lng+'"><time>'+new Date(pin.ts).toISOString()+'</time><name>'+PEOPLE[p].name+' – '+(pin.t==="f"?"eingeworfen":"übersprungen")+'</name></wpt>\n';
+  for(const o of dataOwners()) for(const pin of (data.pins[o]||[]))
+    s += '  <wpt lat="'+pin.lat+'" lon="'+pin.lng+'"><time>'+new Date(pin.ts).toISOString()+'</time><name>'+esc(uname(o))+' – '+(pin.t==="f"?"eingeworfen":"übersprungen")+'</name></wpt>\n';
   s += "</gpx>";
   download("flyer-pins.gpx", s, "application/gpx+xml");
 }
-
-/* ================= Teilen ================= */
 function copyShareLink(){
   if(!dbUrl){ toast("Erst Datenbank einrichten"); return; }
   const link = location.origin + location.pathname + "?db=" + encodeURIComponent(dbUrl);
-  const done = ()=>toast("Link kopiert ✓ – an Susi schicken");
+  const done = ()=>toast("Link kopiert ✓ – privat verschicken");
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(link).then(done).catch(()=>window.prompt("Link manuell kopieren:", link));
   } else window.prompt("Link manuell kopieren:", link);
 }
 
-/* ================= Person ================= */
-function setMe(who, save){
-  me = who;
-  document.body.classList.toggle("is-susi", who==="susi");
-  const badge = $("meBadge");
-  badge.style.display = "flex";
-  badge.className = "me-badge" + (who==="susi" ? " susi" : "");
-  $("meName").textContent = PEOPLE[who].name;
-  $("whoOverlay").classList.add("hidden");
-  updateCounters(); renderStats();
-  if(save){
-    try{ localStorage.setItem("flyer-me", who); }catch(e){}
-  }
-}
-
-/* ================= Tabs ================= */
+/* ============================================================
+   14) Tabs & Events
+   ============================================================ */
 function showTab(which){
   $("view-map").style.display   = which==="map"   ? "flex"  : "none";
   $("view-give").style.display  = which==="give"  ? "block" : "none";
@@ -1174,11 +1323,9 @@ function showTab(which){
   $("tabGive").classList.toggle("active",  which==="give");
   $("tabStats").classList.toggle("active", which==="stats");
   if(which==="map") setTimeout(()=>map.invalidateSize(), 60);
-  if(which==="give") renderGive();
+  if(which==="give"){ renderGive(); renderOrders(); }
   if(which==="stats") renderStats();
 }
-
-/* ================= Events ================= */
 $("btnFlyer").onclick = ()=>addPin("f");
 $("btnSkip").onclick  = ()=>addPin("s");
 $("btnUndo").onclick  = undo;
@@ -1195,8 +1342,9 @@ $("btnHeat").onclick = ()=>{
   renderPins();
   if(heatOn && typeof L.heatLayer !== "function") toast("Heatmap konnte nicht geladen werden (offline?)");
 };
-$("pickRico").onclick = ()=>{ setMe("rico", true); migrate(); };
-$("pickSusi").onclick = ()=>{ setMe("susi", true); migrate(); };
+$("whoNewCancel").onclick = ()=>{ $("whoNewForm").style.display = "none"; };
+$("whoNewSave").onclick = createUser;
+$("whoClose").onclick = ()=>{ if(me) $("whoOverlay").classList.add("hidden"); };
 $("tabMap").onclick = ()=>showTab("map");
 $("tabGive").onclick = ()=>showTab("give");
 $("tabStats").onclick = ()=>showTab("stats");
@@ -1204,41 +1352,43 @@ $("qPlus").onclick  = ()=>{ $("qVal").value = getQty() + 1; };
 $("qMinus").onclick = ()=>{ $("qVal").value = Math.max(1, getQty() - 1); };
 $("qVal").onchange  = ()=>{ $("qVal").value = getQty(); };
 $("giveSave").onclick = addHandout;
+$("giveBy").onchange = ()=>{ giveByTouched = true; };
 $("ordSave").onclick = addOrder;
 
-/* ================= Start ================= */
+/* ============================================================
+   15) Start
+   ============================================================ */
 async function testDb(url){
   const r = await fetch(url + "/ping.json", {cache:"no-store"});
   if(!r.ok) throw new Error("HTTP " + r.status);
 }
 async function startApp(){
   $("setupOverlay").classList.add("hidden");
-  let saved = null, at = null;
-  try{ saved = localStorage.getItem("flyer-me"); }catch(e){}
-  try{ at = JSON.parse(localStorage.getItem("flyer-activetour") || "null"); }catch(e){}
-  if(at && at.id && at.startTs) activeTour = at;   // laufende Tour übersteht Neuladen
+  const at = (()=>{ try{ return JSON.parse(ls("flyer-activetour") || "null"); }catch(e){ return null; } })();
+  if(at && at.id && at.startTs) activeTour = at;
   updateTourUI();
-  if(saved === "rico" || saved === "susi") setMe(saved, false);
-  else $("whoOverlay").classList.remove("hidden");
   await loadAll();
+  const saved = ls("flyer-me");
+  if(saved && users[saved]) setMe(saved, false);
+  else { renderWho(); $("whoOverlay").classList.remove("hidden"); }
   migrate();
   updateCounters();
 }
 $("setupSave").onclick = async ()=>{
   const n = normalizeDb($("dbInput").value);
   const err = $("setupErr");
-  if(!n){ err.style.color = "#C0392B"; err.textContent = "Bitte eine gültige https://…-Adresse einfügen."; return; }
+  if(!n){ err.style.color = "var(--bad)"; err.textContent = "Bitte eine gültige https://…-Adresse einfügen."; return; }
   $("setupSave").disabled = true;
   err.style.color = "var(--muted)"; err.textContent = "Prüfe Verbindung …";
   try{
     dbUrl = n;
     await testDb(n);
-    try{ localStorage.setItem("flyer-db", n); }catch(e){}
+    ls("flyer-db", n);
     err.textContent = "";
     startApp();
   }catch(e){
     dbUrl = null;
-    err.style.color = "#C0392B";
+    err.style.color = "var(--bad)";
     err.textContent = "Keine Verbindung. Stimmen die Adresse und die Datenbank-Regeln (.read/.write auf true)?";
   }
   $("setupSave").disabled = false;
@@ -1252,9 +1402,8 @@ $("setupSave").onclick = async ()=>{
     if(!fromLink && location.hash.indexOf("#db=") === 0) fromLink = decodeURIComponent(location.hash.slice(4));
   }catch(e){}
   const n = normalizeDb(fromLink);
-  if(n){ try{ localStorage.setItem("flyer-db", n); }catch(e){} }
-  try{ dbUrl = localStorage.getItem("flyer-db"); }catch(e){}
-  if(!dbUrl && n) dbUrl = n;
+  if(n) ls("flyer-db", n);
+  dbUrl = ls("flyer-db") || n;
   if(dbUrl) startApp();
   else $("setupOverlay").classList.remove("hidden");
 })();
