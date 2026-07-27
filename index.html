@@ -106,6 +106,12 @@
   td:last-child,th:last-child{text-align:right}
   tr.rowbtn{cursor:pointer}
   tr.rowbtn:active{background:var(--paper)}
+  .rng{display:flex;gap:5px;margin-bottom:9px}
+  .rng button{
+    flex:1;border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:6px 0;
+    font-size:12px;font-weight:700;font-family:inherit;color:var(--muted);cursor:pointer;
+  }
+  .rng button.on{background:var(--ink);border-color:var(--ink);color:#fff}
   .export-row{display:flex;gap:8px;flex-wrap:wrap}
   .export-row .smallbtn{flex:1 1 30%}
   .linkbtn{background:none;border:0;color:var(--muted);font-size:12.5px;font-weight:600;text-decoration:underline;cursor:pointer;font-family:inherit;margin:18px auto 30px;display:block}
@@ -144,6 +150,22 @@
   .leaflet-popup-content{font-family:inherit;font-size:13px;margin:10px 14px}
   .pop-del{margin-top:6px;background:var(--bad);color:#fff;border:0;border-radius:8px;padding:6px 12px;font-weight:700;font-family:inherit;cursor:pointer;font-size:12px}
   .pop-add{margin:3px 4px 0 0;border:0;border-radius:8px;padding:7px 12px;font-weight:700;font-family:inherit;cursor:pointer;font-size:12px;color:#fff}
+  .me-icon{background:none;border:0}
+  .me-core{
+    position:absolute;left:50%;top:50%;width:15px;height:15px;margin:-7.5px 0 0 -7.5px;
+    border-radius:50%;background:#fff;border:3.5px solid var(--ink);
+    box-shadow:0 0 0 1.5px rgba(255,255,255,.95), 0 1px 5px rgba(0,0,0,.45);
+  }
+  .me-pulse{
+    position:absolute;left:50%;top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;
+    border-radius:50%;border:2px solid rgba(255,255,255,.85);background:rgba(23,33,31,.18);
+    animation:mePulse 2.2s ease-out infinite;
+  }
+  @keyframes mePulse{
+    0%{transform:scale(.55);opacity:.95}
+    70%{transform:scale(1.5);opacity:0}
+    100%{transform:scale(1.5);opacity:0}
+  }
   .presence-label{background:var(--card);border:1px solid var(--line);border-radius:8px;font-weight:800;font-size:11px;padding:2px 7px;box-shadow:0 1px 4px rgba(0,0,0,.15)}
 </style>
 </head>
@@ -174,6 +196,8 @@
       <div class="map-banner" id="bfBanner">Nachtrag-Modus: auf die Karte tippen, um einen Pin zu setzen</div>
       <div class="map-banner" id="gpsBanner"></div>
       <div class="map-fabs">
+        <button class="map-fab" id="btnLayer" title="Karte / Satellit">🛰</button>
+        <button class="map-fab" id="btnStreets" title="Straßen-Abdeckung">🛣</button>
         <button class="map-fab" id="btnHeat" title="Heatmap ein/aus">🔥</button>
         <button class="map-fab toggled" id="btnFollow" title="Zentrieren und verfolgen">&#9678;</button>
       </div>
@@ -254,6 +278,57 @@
   </div>
 </div>
 
+<!-- Straßen-Abdeckung -->
+<div class="overlay hidden" id="streetsOverlay">
+  <div class="modal">
+    <h2>Straßen-Abdeckung</h2>
+    <p>Lädt die Straßen des aktuellen Kartenausschnitts von OpenStreetMap und vergleicht sie mit euren Pins. Angezeigt werden nur Ortschaften, in denen ihr schon genug verteilt habt.</p>
+    <div class="form-grid" style="grid-template-columns:1fr 1fr">
+      <div class="field"><label for="stFilterSel">Anzeige</label><select id="stFilterSel">
+        <option value="off">Aus</option>
+        <option value="open">Nur offene</option>
+        <option value="all">Alle (farbig)</option>
+        <option value="done">Nur erledigte</option>
+      </select></div>
+      <div class="field"><label for="stMinSel">Ortschaften ab</label><select id="stMinSel">
+        <option value="0">alle</option>
+        <option value="0.1">10 % Abdeckung</option>
+        <option value="0.2">20 % Abdeckung</option>
+        <option value="0.35">35 % Abdeckung</option>
+        <option value="0.5">50 % Abdeckung</option>
+      </select></div>
+    </div>
+    <label style="display:flex;gap:9px;align-items:center;font-size:13.5px;margin-bottom:7px"><input type="checkbox" id="stTracksCb" checked style="width:18px;height:18px"> Laufwege (GPS-Tracks) zählen mit</label>
+    <label style="display:flex;gap:9px;align-items:center;font-size:13.5px;margin-bottom:13px"><input type="checkbox" id="stSkipCb" checked style="width:18px;height:18px"> „Übersprungen“-Pins zählen mit</label>
+    <div id="stInfo" style="font-size:13px;color:var(--muted);margin-bottom:10px"></div>
+    <div id="stLocList"></div>
+    <div class="modal-btns">
+      <button class="btn-secondary" id="stLoadBtn">Straßen laden</button>
+      <button class="btn-primary" id="stCloseBtn">Schließen</button>
+    </div>
+    <button class="linkbtn" id="stClearBtn" style="margin:12px auto 0">Geladene Straßen löschen</button>
+  </div>
+</div>
+
+<!-- Einladungs-Link -->
+<div class="overlay hidden" id="inviteOverlay">
+  <div class="modal">
+    <h2>Einladungs-Link</h2>
+    <p>Der Link enthält die Datenbank-Adresse und wählt auf dem neuen Gerät direkt die Person vor (nur beim ersten Öffnen). Bitte nur privat verschicken!</p>
+    <div id="invList" style="display:flex;flex-direction:column;gap:10px"></div>
+    <div id="invNewForm" style="display:none;margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
+      <div class="field" style="margin-bottom:8px"><label for="invName">Name</label><input class="name-input" id="invName" type="text" maxlength="20" placeholder="z. B. Max" autocomplete="off"></div>
+      <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)">Pinfarbe</label>
+      <div class="swatches" id="invSwatches"></div>
+      <div class="modal-btns" style="margin-top:10px">
+        <button class="btn-secondary" id="invNewCancel">Zurück</button>
+        <button class="btn-primary" id="invNewSave">Anlegen &amp; Link kopieren</button>
+      </div>
+    </div>
+    <button class="linkbtn" id="invClose" style="margin:14px auto 0">Schließen</button>
+  </div>
+</div>
+
 <!-- Tour beenden -->
 <div class="overlay hidden" id="tourOverlay">
   <div class="modal">
@@ -323,10 +398,13 @@ let cooldownUntil = 0, cooldownIv = null;
 let backfill = false, heatOn = false;
 let follow = true, progMove = false, firstFix = true;
 let myPos = null, myAcc = null;
-let map, pinLayer, trackLayer, heatLayer = null, meMarker = null, accCircle = null;
+let map, pinLayer, trackLayer, streetLayer, heatLayer = null, meMarker = null, accCircle = null;
+let baseOSM = null, baseSat = null, satLabels = null, satOn = false;
 let presenceMarkers = {};          // nutzerId -> Marker
 let saving = false, flushing = false, loaded = false;
 let newColor = null;
+let statRange = 30;    // Tage im Diagramm (0 = alles)
+let wantUser = null;   // Person aus Einladungs-Link (?user=…)
 
 const $ = id => document.getElementById(id);
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
@@ -408,9 +486,7 @@ function seedUsers(){
   }
   flushKV();
 }
-function createUser(){
-  const name = $("whoName").value.trim();
-  if(!name){ toast("Bitte einen Namen eingeben"); $("whoName").focus(); return; }
+function createUserRecord(name){
   const taken = new Set(userIds().map(id=>users[id].color));
   const color = newColor || PALETTE.find(c=>!taken.has(c)) || PALETTE[0];
   const id = uid();
@@ -419,8 +495,15 @@ function createUser(){
   pendingKV.push({path:"users", op:"set", id:id, rec:rec});
   flushKV();
   ensureUserData(id);
-  $("whoName").value = ""; newColor = null;
+  newColor = null;
   usersChanged();
+  return id;
+}
+function createUser(){ // aus dem "Wer bist du?"-Dialog: anlegen und selbst übernehmen
+  const name = $("whoName").value.trim();
+  if(!name){ toast("Bitte einen Namen eingeben"); $("whoName").focus(); return; }
+  const id = createUserRecord(name);
+  $("whoName").value = "";
   pickUser(id);
   toast("Willkommen, "+name+"! ✓");
 }
@@ -452,18 +535,19 @@ function renderWho(){
     '<button class="who-btn new" id="whoNewBtn">＋ Neue Person anlegen</button>';
   $("whoNewBtn").onclick = ()=>{
     $("whoNewForm").style.display = "block";
-    renderSwatches();
+    renderSwatches("swatches");
     $("whoName").focus();
   };
 }
-function renderSwatches(){
+function renderSwatches(containerId){
+  const cid = containerId || "swatches";
   const taken = new Set(userIds().map(id=>users[id].color));
   if(!newColor) newColor = PALETTE.find(c=>!taken.has(c)) || PALETTE[0];
-  $("swatches").innerHTML = PALETTE.map(c=>
+  $(cid).innerHTML = PALETTE.map(c=>
     '<button type="button" class="swatch'+(c===newColor?" sel":"")+'" style="background:'+c+'" data-c="'+c+'" title="'+(taken.has(c)?"schon vergeben":"")+'"></button>'
   ).join("");
-  for(const b of $("swatches").querySelectorAll(".swatch"))
-    b.onclick = ()=>{ newColor = b.dataset.c; renderSwatches(); };
+  for(const b of $(cid).querySelectorAll(".swatch"))
+    b.onclick = ()=>{ newColor = b.dataset.c; renderSwatches(cid); };
 }
 function usersChanged(){ // nach Laden/Anlegen: alles aktualisieren, was Nutzer anzeigt
   renderWho();
@@ -560,13 +644,20 @@ async function loadUserData(id){
     loadArr("tours-"+id, data.tours[id]||[]),
     loadObj("tracks-"+id, data.tracks[id]||{})
   ]);
-  data.pins[id]=res[0]; data.tours[id]=res[1]; data.tracks[id]=res[2];
+  const own = (id === me);
+  if(!own || !dirty.pins)   data.pins[id]   = res[0];   // eigene ungesendete Pins behalten Vorrang
+  if(!own || !dirty.tours)  data.tours[id]  = res[1];
+  if(!own || !dirty.tracks) data.tracks[id] = res[2];
 }
 async function loadAll(){
   setSync("busy","Lädt …");
-  users = await loadObj("users", {});
+  let usersOk = true;
+  try{
+    const v = await dbGet("users");
+    users = (v && typeof v==="object" && !Array.isArray(v)) ? v : {};
+  }catch(e){ usersOk = false; users = users || {}; }
   applyPendingKV();
-  seedUsers();
+  if(usersOk) seedUsers();   // bei Netzfehler NICHT anlegen, sonst entstehen Doppelungen
   const jobs = userIds().map(id=>loadUserData(id));
   jobs.push((async()=>{ handouts = await loadObj("handouts", {}); })());
   jobs.push((async()=>{ orders = await loadObj("orders", {}); })());
@@ -586,10 +677,17 @@ async function loadAll(){
   usersChanged();
   renderAll();
 }
+let syncing = false;
 async function refreshOthers(showToast){
   if(!me || !dbUrl) return;
+  if(syncing) return;                 // parallele Läufe würden sich gegenseitig überholen
+  syncing = true;
+  try{ await doRefresh(showToast); } finally { syncing = false; }
+}
+async function doRefresh(showToast){
   setSync("busy","Aktualisiere …");
-  users = await loadObj("users", users);
+  const fresh = await loadObj("users", null);
+  if(fresh) for(const id in fresh) users[id] = fresh[id];   // nie einen Datensatz verlieren
   applyPendingKV();
   for(const id of userIds()){
     if(id === me) continue;               // eigener Stand bleibt lokal führend
@@ -650,12 +748,10 @@ async function updatePresence(){
    ============================================================ */
 function orderedFlyers(){ let s=0; for(const k in orders) s += (orders[k].n||0); return s; }
 function usedFlyers(){
-  let tourFly=0; const savedIds=new Set();
-  for(const o of dataOwners()) for(const t of (data.tours[o]||[])){ tourFly += t.flyers; savedIds.add(t.id); }
-  let hFly=0; for(const k in handouts) hFly += (handouts[k].n||0);
-  let loose=0;
-  for(const o of dataOwners()) for(const pin of (data.pins[o]||[]))
-    if(pin.t==="f" && (!pin.tour || !savedIds.has(pin.tour))) loose += (pin.n||1);
+  const agg = aggregate();
+  let tourFly = 0, loose = 0;
+  for(const o of agg.owners){ tourFly += (agg.tot[o].fly - agg.tot[o].open); loose += agg.tot[o].open; }
+  let hFly = 0; for(const k in handouts) hFly += (handouts[k].n||0);
   return { used: tourFly+hFly+loose, tourFly:tourFly, hFly:hFly, loose:loose };
 }
 function addOrder(){
@@ -760,12 +856,48 @@ function initMap(){
   progMove = true;
   map.setView([51.16, 10.45], 6);
   progMove = false;
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:19, attribution:"© OpenStreetMap" }).addTo(map);
+  // Eigene Ebenen, damit der Standort immer über den Pins liegt
+  map.createPane("accPane").style.zIndex = 350;   // über den Kacheln, aber unter den Pins
+  map.createPane("mePane").style.zIndex = 655;
+  map.getPane("mePane").style.pointerEvents = "none";
+  map.getPane("accPane").style.pointerEvents = "none";
+  baseOSM = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom:19, attribution:"© OpenStreetMap"
+  });
+  baseSat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+    maxZoom:19, maxNativeZoom:19, attribution:"Luftbild © Esri, Maxar, Earthstar Geographics"
+  });
+  satLabels = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}", {
+    maxZoom:19, maxNativeZoom:19, opacity:0.9, attribution:""
+  });
+  satOn = ls("flyer-sat") === "1";
+  applyBase();
+  streetLayer = L.layerGroup().addTo(map);
   trackLayer = L.layerGroup().addTo(map);
   pinLayer = L.layerGroup().addTo(map);
   map.on("dragstart", ()=>{ if(!progMove) setFollow(false); });
   map.on("zoomstart", ()=>{ if(!progMove) setFollow(false); });
   map.on("click", onMapClick);
+}
+function applyBase(){
+  if(!map) return;
+  if(satOn){
+    if(map.hasLayer(baseOSM)) map.removeLayer(baseOSM);
+    if(!map.hasLayer(baseSat)) baseSat.addTo(map);
+    if(!map.hasLayer(satLabels)) satLabels.addTo(map);
+  }else{
+    if(map.hasLayer(baseSat)) map.removeLayer(baseSat);
+    if(map.hasLayer(satLabels)) map.removeLayer(satLabels);
+    if(!map.hasLayer(baseOSM)) baseOSM.addTo(map);
+  }
+  const b = $("btnLayer");
+  if(b){ b.textContent = satOn ? "🗺" : "🛰"; b.classList.toggle("toggled", satOn); }
+}
+function toggleBase(){
+  satOn = !satOn;
+  ls("flyer-sat", satOn ? "1" : "0");
+  applyBase();
+  toast(satOn ? "Satellitenansicht" : "Straßenkarte");
 }
 function setFollow(on){
   follow = on;
@@ -827,6 +959,8 @@ function renderPins(){
   if(heatOn && typeof L.heatLayer === "function" && heatPts.length){
     heatLayer = L.heatLayer(heatPts, {radius:22, blur:16, maxZoom:18, minOpacity:0.25}).addTo(map);
   }
+  stDirty = true;
+  renderStreets();
 }
 window.__delPin = function(id){
   const arr = data.pins[me] || [];
@@ -880,8 +1014,14 @@ function onPos(ev){
   myAcc = ev.coords.accuracy;
   $("gpsInfo").textContent = "GPS: ±" + Math.round(myAcc) + " m";
   if(!meMarker){
-    meMarker = L.circleMarker([myPos.lat,myPos.lng],{radius:8,color:"#fff",weight:3,fillColor:"#17211F",fillOpacity:1}).addTo(map);
-    accCircle = L.circle([myPos.lat,myPos.lng],{radius:myAcc,color:"#17211F",weight:1,opacity:.3,fillOpacity:.06}).addTo(map);
+    meMarker = L.marker([myPos.lat,myPos.lng], {
+      pane:"mePane", interactive:false, keyboard:false, zIndexOffset:1000,
+      icon: L.divIcon({ className:"me-icon", html:'<div class="me-pulse"></div><div class="me-core"></div>', iconSize:[30,30], iconAnchor:[15,15] })
+    }).addTo(map);
+    accCircle = L.circle([myPos.lat,myPos.lng], {
+      pane:"accPane", interactive:false, radius:myAcc,
+      color:"#FFFFFF", weight:1.5, opacity:.75, fillColor:"#17211F", fillOpacity:.07
+    }).addTo(map);
   }else{
     meMarker.setLatLng([myPos.lat,myPos.lng]);
     accCircle.setLatLng([myPos.lat,myPos.lng]).setRadius(myAcc);
@@ -1120,16 +1260,26 @@ function aggregate(){
   const owners = dataOwners();
   const days = {}, tot = {};
   for(const o of owners){
-    tot[o] = {fly:0,pins:0,pinFly:0,skip:0,tours:0};
+    tot[o] = {fly:0, pins:0, pinFly:0, skip:0, tours:0, open:0};
+    // Abgeschlossene Touren zählen mit ihrem eingetragenen Wert …
+    const closed = new Set();
     for(const t of (data.tours[o]||[])){
+      closed.add(t.id);
       tot[o].fly += t.flyers; tot[o].tours++;
       const k = dayKey(t.startTs || t.ts);
       if(!days[k]) days[k] = {};
       days[k][o] = (days[k][o]||0) + t.flyers;
     }
+    // … alle übrigen Pins (laufende Tour, ohne Tour) sofort, damit nichts fehlt
     for(const pin of (data.pins[o]||[])){
-      if(pin.t==="f"){ tot[o].pins++; tot[o].pinFly += (pin.n||1); }
-      else tot[o].skip++;
+      if(pin.t !== "f"){ tot[o].skip++; continue; }
+      const n = pin.n || 1;
+      tot[o].pins++; tot[o].pinFly += n;
+      if(pin.tour && closed.has(pin.tour)) continue;   // schon über die Tour gezählt
+      tot[o].fly += n; tot[o].open += n;
+      const k = dayKey(pin.ts);
+      if(!days[k]) days[k] = {};
+      days[k][o] = (days[k][o]||0) + n;
     }
   }
   return { days:days, keys:Object.keys(days).sort(), tot:tot, owners:owners };
@@ -1137,59 +1287,224 @@ function aggregate(){
 function chartLegend(owners){
   return '<div class="legend">'+owners.map(o=>'<span><i style="background:'+ucolor(o)+'"></i>'+esc(uname(o))+'</span>').join("")+'</div>';
 }
+function dayKeysBetween(fromKey, toKey){   // lückenlose Tagesliste
+  const out = [];
+  const d = new Date(fromKey+"T12:00:00"), end = new Date(toKey+"T12:00:00");
+  let guard = 0;
+  while(d <= end && guard++ < 3000){ out.push(dayKey(d.getTime())); d.setDate(d.getDate()+1); }
+  return out;
+}
+function dayVal(days, k, o){ return (days[k] && days[k][o]) || 0; }
+function isWeekend(k){ const w = new Date(k+"T12:00:00").getDay(); return w===0 || w===6; }
 function barChartSVG(keys, days, owners){
-  if(keys.length===0) return '<div class="empty">Noch keine Daten – schließe deine erste Tour ab.</div>';
-  const W=340, H=170, padB=22, padL=4, padT=14;
-  const shown = keys.slice(-14);
-  const maxV = Math.max(1, ...shown.map(k=>Math.max(...owners.map(o=>days[k][o]||0))));
-  const groupW = (W-padL*2)/shown.length;
-  const barW = Math.max(3, Math.min(16, (groupW*0.8)/owners.length));
-  const withLabels = owners.length <= 3;
+  if(!keys.length) return '<div class="empty">Noch keine Daten – setz deinen ersten Pin.</div>';
+  const W=340, H=178, padB=24, padL=4, padT=15;
+  const plotH = H - padB - padT;
+  const maxV = Math.max(1, ...keys.map(k=>Math.max(0, ...owners.map(o=>dayVal(days,k,o)))));
+  const gw = (W-padL*2)/keys.length;
+  const bw = Math.max(1.4, Math.min(15, (gw*0.78)/owners.length));
+  const labelEvery = Math.ceil(keys.length/7);
+  const showVals = keys.length <= 10 && owners.length <= 3;
+  const today = dayKey(Date.now());
   let s = '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">';
-  shown.forEach((k,i)=>{
-    const cx = padL + groupW*i + groupW/2;
-    const x0 = cx - (owners.length*barW)/2;
+  // Hilfslinie bei der Hälfte + Wochenenden dezent hinterlegen
+  s += '<line x1="0" y1="'+(padT+plotH/2)+'" x2="'+W+'" y2="'+(padT+plotH/2)+'" stroke="#DDE3E1" stroke-dasharray="2 3"/>';
+  s += '<text x="2" y="'+(padT+plotH/2-3)+'" font-size="8" fill="#B4BDBA">'+Math.round(maxV/2)+'</text>';
+  keys.forEach((k,i)=>{
+    if(isWeekend(k)) s += '<rect x="'+(padL+gw*i).toFixed(1)+'" y="'+padT+'" width="'+gw.toFixed(1)+'" height="'+plotH+'" fill="#17211F" opacity="0.05"/>';
+    if(k===today)   s += '<rect x="'+(padL+gw*i).toFixed(1)+'" y="'+padT+'" width="'+gw.toFixed(1)+'" height="'+plotH+'" fill="#C8772A" opacity="0.12"/>';
+  });
+  keys.forEach((k,i)=>{
+    const cx = padL + gw*i + gw/2;
+    const x0 = cx - (owners.length*bw)/2;
     owners.forEach((o,j)=>{
-      const v = days[k][o]||0;
+      const v = dayVal(days,k,o);
       if(v<=0) return;
-      const h = (v/maxV)*(H-padB-padT);
-      const x = x0 + j*barW;
-      s += '<rect x="'+x.toFixed(1)+'" y="'+(H-padB-h)+'" width="'+(barW-1)+'" height="'+h+'" rx="2.5" fill="'+ucolor(o)+'"/>';
-      if(withLabels) s += '<text x="'+(x+barW/2).toFixed(1)+'" y="'+(H-padB-h-3)+'" font-size="8.5" font-weight="700" text-anchor="middle" fill="'+ucolor(o)+'">'+v+'</text>';
+      const h = Math.max(1.5, (v/maxV)*plotH);
+      const x = x0 + j*bw;
+      s += '<rect x="'+x.toFixed(1)+'" y="'+(H-padB-h).toFixed(1)+'" width="'+Math.max(1,bw-0.8).toFixed(1)+'" height="'+h.toFixed(1)+'" rx="'+(bw>4?2:0.8)+'" fill="'+ucolor(o)+'"/>';
+      if(showVals) s += '<text x="'+(x+bw/2).toFixed(1)+'" y="'+(H-padB-h-3).toFixed(1)+'" font-size="8.5" font-weight="700" text-anchor="middle" fill="'+ucolor(o)+'">'+v+'</text>';
     });
-    s += '<text x="'+cx+'" y="'+(H-7)+'" font-size="9" text-anchor="middle" fill="#6B7774">'+fmtDay(k)+'</text>';
+    if(i % labelEvery === 0 || i === keys.length-1)
+      s += '<text x="'+cx.toFixed(1)+'" y="'+(H-8)+'" font-size="8.5" text-anchor="middle" fill="'+(k===today?"#C8772A":"#6B7774")+'" font-weight="'+(k===today?"800":"400")+'">'+fmtDay(k)+'</text>';
   });
   s += '<line x1="0" y1="'+(H-padB)+'" x2="'+W+'" y2="'+(H-padB)+'" stroke="#DDE3E1"/>';
   return s + "</svg>";
 }
-function lineChartSVG(keys, days, owners){
-  if(keys.length===0) return "";
-  const W=340, H=150, padB=22, padL=4, padT=10;
+function lineChartSVG(allKeys, winKeys, days, owners){
+  if(!winKeys.length) return "";
+  const W=340, H=152, padB=22, padL=4, padT=12;
+  const start = allKeys.length - winKeys.length;
   const cum = {};
-  for(const o of owners) cum[o] = [];
+  for(const o of owners){                       // Stand vor dem Fenster aufaddieren
+    let base = 0;
+    for(let i=0;i<start;i++) base += dayVal(days, allKeys[i], o);
+    cum[o] = [];
+    let run = base;
+    for(const k of winKeys){ run += dayVal(days,k,o); cum[o].push(run); }
+  }
   let maxV = 1;
-  keys.forEach(k=>{
-    for(const o of owners){
-      const prev = cum[o].length ? cum[o][cum[o].length-1] : 0;
-      const v = prev + (days[k][o]||0);
-      cum[o].push(v);
-      if(v > maxV) maxV = v;
-    }
-  });
-  const x = i => keys.length===1 ? W/2 : padL + (W-padL*2)*(i/(keys.length-1));
+  for(const o of owners) for(const v of cum[o]) if(v>maxV) maxV = v;
+  const x = i => winKeys.length===1 ? W/2 : padL + (W-padL*2)*(i/(winKeys.length-1));
   const y = v => (H-padB) - (v/maxV)*(H-padB-padT);
   let s = '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto" xmlns="http://www.w3.org/2000/svg">';
   s += '<line x1="0" y1="'+(H-padB)+'" x2="'+W+'" y2="'+(H-padB)+'" stroke="#DDE3E1"/>';
+  winKeys.forEach((k,i)=>{ if(isWeekend(k)) s += '<rect x="'+(x(i)-1).toFixed(1)+'" y="'+padT+'" width="2" height="'+(H-padB-padT)+'" fill="#17211F" opacity="0.04"/>'; });
   owners.forEach((o,j)=>{
     const path = cum[o].map((v,i)=>(i?"L":"M")+x(i).toFixed(1)+","+y(v).toFixed(1)).join(" ");
-    s += '<path d="'+path+'" fill="none" stroke="'+ucolor(o)+'" stroke-width="2.5" stroke-linecap="round"/>';
+    s += '<path d="'+path+'" fill="none" stroke="'+ucolor(o)+'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
     const lastV = cum[o][cum[o].length-1];
-    if(lastV > 0) s += '<text x="'+(W-4)+'" y="'+(y(lastV) + (j%2 ? 12 : -4))+'" font-size="10" font-weight="800" text-anchor="end" fill="'+ucolor(o)+'">'+lastV+'</text>';
+    if(lastV > 0){
+      s += '<circle cx="'+x(cum[o].length-1).toFixed(1)+'" cy="'+y(lastV).toFixed(1)+'" r="3" fill="'+ucolor(o)+'"/>';
+      s += '<text x="'+(W-4)+'" y="'+(y(lastV) + (j%2 ? 12 : -5)).toFixed(1)+'" font-size="10" font-weight="800" text-anchor="end" fill="'+ucolor(o)+'">'+lastV+'</text>';
+    }
   });
-  s += '<text x="'+padL+'" y="'+(H-7)+'" font-size="9" fill="#6B7774">'+fmtDay(keys[0])+'</text>';
-  s += '<text x="'+(W-padL)+'" y="'+(H-7)+'" font-size="9" text-anchor="end" fill="#6B7774">'+fmtDay(keys[keys.length-1])+'</text>';
+  s += '<text x="'+padL+'" y="'+(H-7)+'" font-size="9" fill="#6B7774">'+fmtDay(winKeys[0])+'</text>';
+  s += '<text x="'+(W-padL)+'" y="'+(H-7)+'" font-size="9" text-anchor="end" fill="#6B7774">'+fmtDay(winKeys[winKeys.length-1])+'</text>';
   return s + "</svg>";
 }
+/* ---------- Spaß-Fakten ---------- */
+const FORMATS = { a4:{n:"A4", m2:0.06237}, a5:{n:"A5", m2:0.03108}, a6:{n:"A6 (Postkarte)", m2:0.01554}, dl:{n:"DL (lang)", m2:0.02079} };
+const PAPERS  = { p80:{n:"80 g", g:80, mm:0.104}, p135:{n:"135 g", g:135, mm:0.15}, p170:{n:"170 g", g:170, mm:0.19}, p250:{n:"250 g", g:250, mm:0.28} };
+const CITIES = [
+  ["Leipzig",51.3397,12.3731],["Halle (Saale)",51.4826,11.9700],["Chemnitz",50.8278,12.9214],
+  ["Dresden",51.0504,13.7373],["Erfurt",50.9787,11.0328],["Nürnberg",49.4521,11.0767],
+  ["Berlin",52.5200,13.4050],["Prag",50.0755,14.4378],["Frankfurt am Main",50.1109,8.6821],
+  ["Hamburg",53.5511,9.9937],["Köln",50.9375,6.9603],["München",48.1351,11.5820],
+  ["Wien",48.2082,16.3738],["Amsterdam",52.3676,4.9041],["Zürich",47.3769,8.5417],
+  ["Kopenhagen",55.6761,12.5683],["Warschau",52.2297,21.0122],["Paris",48.8566,2.3522],
+  ["London",51.5074,-0.1278],["Stockholm",59.3293,18.0686],["Rom",41.9028,12.4964],
+  ["Barcelona",41.3851,2.1734],["Madrid",40.4168,-3.7038],["Istanbul",41.0082,28.9784],
+  ["Lissabon",38.7223,-9.1393],["Reykjavík",64.1466,-21.9426],["Kairo",30.0444,31.2357],
+  ["New York",40.7128,-74.0060]
+];
+const HEIGHTS = [["ein Bierkasten",0.3],["ein Bürostuhl",1.2],["eine Zimmertür",2.0],["eine Giraffe",5.5],
+  ["ein Einfamilienhaus",9],["ein Fahnenmast",16],["ein zehnstöckiges Haus",30],["das Völkerschlachtdenkmal",91],
+  ["der Kölner Dom",157],["der Eiffelturm",330],["der Berliner Fernsehturm",368],["der Burj Khalifa",828],
+  ["die Zugspitze",2962],["der Mount Everest",8848]];
+const AREAS = [["ein Handtuch",1],["ein Parkplatz",12.5],["ein Wohnzimmer",25],["ein Basketballfeld",420],
+  ["ein Tennisplatz",261],["ein Fußballfeld",7140],["ein Fußballstadion-Innenraum",10000]];
+const WEIGHTS = [["ein Sack Zement",25],["ein erwachsener Mensch",75],["ein Klavier",300],["ein Kleinwagen",1200],
+  ["ein Elefant",5000]];
+const FOODS = [["Bananen",90],["Schokoriegel",230],["Portionen Pommes",400],["Döner",700],["Pizzen",850]];
+
+let funFormat = "a5", funPaper = "p135";
+function loadFunOpt(){
+  try{
+    const o = JSON.parse(ls("flyer-fun") || "null");
+    if(o){ if(FORMATS[o.f]) funFormat = o.f; if(PAPERS[o.p]) funPaper = o.p; }
+  }catch(e){}
+}
+function saveFunOpt(){ ls("flyer-fun", JSON.stringify({f:funFormat, p:funPaper})); }
+function nfmt(x, dec){
+  return Number(x).toLocaleString("de-DE", {minimumFractionDigits:dec||0, maximumFractionDigits:dec||0});
+}
+function pickCmp(value, list){   // größtes Vergleichsobjekt, das hineinpasst
+  let best = null;
+  for(const it of list) if(value >= it[1] && (!best || it[1] > best[1])) best = it;
+  if(best) return { txt:"so hoch wie "+best[0], name:best[0], ratio:value/best[1], fits:true };
+  let small = list[0];
+  for(const it of list) if(it[1] < small[1]) small = it;
+  return { name:small[0], ratio:value/small[1], fits:false };
+}
+function cmpLine(value, list, unitFmt){
+  const c = pickCmp(value, list);
+  if(!c.fits) return Math.round(c.ratio*100) + " % von " + c.name;
+  const r = c.ratio;
+  return (r >= 1.6 ? nfmt(r,1)+"× " : "") + c.name + (r >= 1.6 ? "" : "");
+}
+function totalDistanceM(){
+  let m = 0;
+  for(const o of dataOwners()){
+    const trs = data.tracks[o] || {};
+    const withTrack = new Set();
+    for(const tid in trs){
+      const a = trs[tid];
+      if(Array.isArray(a) && a.length > 1){
+        for(let i=1;i<a.length;i++) m += distM({lat:a[i-1][0],lng:a[i-1][1]}, {lat:a[i][0],lng:a[i][1]});
+        withTrack.add(tid);
+      }
+    }
+    for(const t of (data.tours[o]||[])) if(!withTrack.has(t.id) && t.dist) m += t.dist;
+  }
+  return m;
+}
+function totalDurationMs(){
+  let ms = 0;
+  for(const o of dataOwners()) for(const t of (data.tours[o]||[])) if(t.startTs) ms += Math.max(0, t.ts - t.startTs);
+  return ms;
+}
+function homePoint(){
+  let n=0, la=0, ln=0;
+  for(const o of dataOwners()) for(const p of (data.pins[o]||[])){ la+=p.lat; ln+=p.lng; n++; }
+  return n ? {lat:la/n, lng:ln/n} : null;
+}
+function homeName(){
+  const hp = homePoint();
+  if(!hp || !streets || !streets.places || !streets.places.length) return null;
+  let best = null, bd = Infinity;
+  for(const p of streets.places){
+    const d = distM(hp, {lat:p.lat, lng:p.lng});
+    if(d < bd){ bd = d; best = p; }
+  }
+  return bd <= 15000 ? best.n : null;
+}
+function cityLine(distM_total){
+  const hp = homePoint();
+  if(!hp || distM_total < 100) return null;
+  const from = homeName() || "eurem Verteilgebiet";
+  const list = CITIES.map(c=>({ n:c[0], d:distM(hp, {lat:c[1], lng:c[2]}) }))
+                     .filter(c=>c.d > 1500).sort((a,b)=>a.d-b.d);
+  if(!list.length) return null;
+  let reached = null;
+  for(const c of list) if(distM_total >= c.d) reached = c;
+  if(reached) return "Luftlinie von " + from + " bis " + reached.n + " – geschafft! 🎉";
+  const next = list[0];
+  return Math.round(distM_total/next.d*100) + " % der Luftlinie von " + from + " nach " + next.n;
+}
+function funFactsHTML(flyers){
+  const F = FORMATS[funFormat], P = PAPERS[funPaper];
+  const dist = totalDistanceM();
+  const steps = dist / 0.72;
+  const kcal = dist/1000 * 50;
+  const tower = flyers * P.mm / 1000;
+  const area = flyers * F.m2;
+  const weight = flyers * F.m2 * P.g / 1000;
+  const dur = totalDurationMs();
+  const food = (function(){
+    let best = FOODS[0];
+    for(const f of FOODS) if(kcal >= f[1] && f[1] > best[1]) best = f;
+    return { n:best[0], c:kcal/best[1] };
+  })();
+  const rows = [];
+  rows.push(['Gelaufene Strecke', dist >= 1000 ? nfmt(dist/1000,2)+" km" : nfmt(dist,0)+" m"]);
+  const cl = cityLine(dist);
+  if(cl) rows.push(['&nbsp;&nbsp;↳ entspricht', cl]);
+  rows.push(['Schritte (ca.)', nfmt(steps,0)]);
+  rows.push(['Verbrannte Kalorien', nfmt(kcal,0)+" kcal"]);
+  if(kcal >= 90) rows.push(['&nbsp;&nbsp;↳ das sind', nfmt(food.c,1)+" "+food.n]);
+  if(dur > 0) rows.push(['Zeit unterwegs', fmtDur(dur)]);
+  rows.push(['Flyer-Turm gestapelt', tower >= 1 ? nfmt(tower,2)+" m" : nfmt(tower*100,1)+" cm"]);
+  if(tower > 0.05) rows.push(['&nbsp;&nbsp;↳ das ist', cmpLine(tower, HEIGHTS)]);
+  rows.push(['Papierfläche gesamt', nfmt(area,1)+" m²"]);
+  if(area > 0.5) rows.push(['&nbsp;&nbsp;↳ das ist', cmpLine(area, AREAS).replace("so hoch wie","so groß wie")]);
+  rows.push(['Papiergewicht', weight >= 1 ? nfmt(weight,1)+" kg" : nfmt(weight*1000,0)+" g"]);
+  if(weight >= 25) rows.push(['&nbsp;&nbsp;↳ das ist', cmpLine(weight, WEIGHTS).replace("so hoch wie","so schwer wie")]);
+  if(dist > 0 && flyers > 0) rows.push(['Ø Strecke pro Flyer', nfmt(dist/flyers,1)+" m"]);
+  return '<div class="chart-card">' +
+    '<div class="form-grid" style="grid-template-columns:1fr 1fr;margin-bottom:6px">' +
+      '<div class="field"><label for="funFormat">Flyer-Format</label><select id="funFormat">' +
+        Object.keys(FORMATS).map(k=>'<option value="'+k+'"'+(k===funFormat?' selected':'')+'>'+FORMATS[k].n+'</option>').join("") +
+      '</select></div>' +
+      '<div class="field"><label for="funPaper">Papier</label><select id="funPaper">' +
+        Object.keys(PAPERS).map(k=>'<option value="'+k+'"'+(k===funPaper?' selected':'')+'>'+PAPERS[k].n+'</option>').join("") +
+      '</select></div>' +
+    '</div>' +
+    rows.map(r=>'<div class="kv"><span>'+r[0]+'</span><b style="text-align:right">'+r[1]+'</b></div>').join("") +
+    '<div class="empty" style="padding-top:10px">Schätzwerte: 0,72 m Schrittlänge, 50 kcal pro km (ca. 70 kg). Strecke aus euren GPS-Aufzeichnungen – ohne aufgezeichnete Tour bleibt sie klein.</div>' +
+  '</div>';
+}
+
 function renderStats(){
   const v = $("view-stats");
   const agg = aggregate();
@@ -1206,16 +1521,47 @@ function renderStats(){
   const skipTotal = agg.owners.reduce((s,o)=>s+agg.tot[o].skip,0);
   const perUserSub = f => agg.owners.filter(o=>f(agg.tot[o])>0).map(o=>esc(uname(o))+" "+f(agg.tot[o])).join(" · ") || "–";
 
+  // Lückenlose Tagesachse vom ersten Flyer bis heute
+  const allKeys = agg.keys.length ? dayKeysBetween(agg.keys[0], dayKey(Date.now())) : [];
+  const winKeys = (statRange > 0 && allKeys.length > statRange) ? allKeys.slice(-statRange) : allKeys;
+  const ranges = [[7,"7 Tage"],[30,"30 Tage"],[0,"Alles"]];
+  const rangeBar = allKeys.length > 7
+    ? '<div class="rng">'+ranges.map(r=>'<button data-r="'+r[0]+'" class="'+(statRange===r[0]?"on":"")+'">'+r[1]+'</button>').join("")+'</div>'
+    : "";
+  // Kennzahlen über den gesamten Zeitraum
+  let kpiBlock = "";
+  if(allKeys.length){
+    const sumDay = k => agg.owners.reduce((x,o)=>x+dayVal(agg.days,k,o), 0);
+    const total = allKeys.reduce((x,k)=>x+sumDay(k), 0);
+    const activeDays = allKeys.filter(k=>sumDay(k) > 0).length;
+    let bestK = allKeys[0], bestV = -1;
+    for(const k of allKeys){ const v = sumDay(k); if(v > bestV){ bestV = v; bestK = k; } }
+    const avgAll = total / allKeys.length;
+    const avgActive = activeDays ? total/activeDays : 0;
+    const fmt1 = x => x.toFixed(1).replace(".",",");
+    kpiBlock =
+      '<div class="section-title">Kennzahlen</div>' +
+      '<div class="chart-card">' +
+        '<div class="kv"><span>Zeitraum</span><b>'+fmtDayFull(allKeys[0])+' – heute ('+allKeys.length+' Tage)</b></div>' +
+        '<div class="kv"><span>Ø pro Tag (alle Tage)</span><b>'+fmt1(avgAll)+'</b></div>' +
+        '<div class="kv"><span>Ø pro aktivem Tag</span><b>'+fmt1(avgActive)+'</b></div>' +
+        '<div class="kv"><span>Aktive Tage</span><b>'+activeDays+' von '+allKeys.length+'</b></div>' +
+        '<div class="kv"><span>Bester Tag</span><b>'+fmtDayFull(bestK)+' · '+bestV+' Flyer</b></div>' +
+      '</div>';
+  }
+  const totalFlyers = agg.owners.reduce((x,o)=>x+agg.tot[o].fly, 0) + hFly;
   const allTours = [];
   for(const o of agg.owners) for(const t of (data.tours[o]||[])) allTours.push({t:t, o:o});
   allTours.sort((a,b)=>(b.t.startTs||b.t.ts)-(a.t.startTs||a.t.ts));
 
   const userCards = agg.owners.map(o=>{
     const todayFly = (agg.days[today]||{})[o] || 0;
+    const op = agg.tot[o].open;
     return '<div class="card" style="border-top:3px solid '+ucolor(o)+'">'+
       '<div class="label">'+esc(uname(o))+' · Flyer gesamt</div>'+
       '<div class="big" style="color:'+ucolor(o)+'">'+agg.tot[o].fly+'</div>'+
-      '<div class="sub">heute: '+todayFly+' · Touren: '+agg.tot[o].tours+'</div></div>';
+      '<div class="sub">heute: '+todayFly+' · Touren: '+agg.tot[o].tours+
+      (op>0 ? ' · '+op+' noch in offener Tour' : '')+'</div></div>';
   }).join("");
 
   v.innerHTML =
@@ -1226,10 +1572,12 @@ function renderStats(){
         (Object.keys(hByUser).length ? Object.keys(hByUser).map(id=>esc(uname(id))+" "+hByUser[id]).join(" · ") : hList.length+(hList.length===1?' Eintrag':' Einträge'))+'</div></div>' +
       '<div class="card"><div class="label">Bestand übrig</div><div class="big"'+(left!=null && left<0 ? ' style="color:var(--bad)"' : '')+'>'+(left!=null ? left : "–")+'</div><div class="sub">'+(ordered>0 ? 'von '+ordered+' bestellt · '+uf.used+' verteilt' : 'Bestellung im Tab „Bestand“ eintragen')+'</div></div>' +
     '</div>' +
-    (me && activeTour ? '<div class="empty">Hinweis: Deine laufende Tour zählt erst nach „Tour beenden“ in die Flyer-Statistik.</div>' : "") +
-    '<div class="section-title">Flyer pro Tag</div>' +
-    '<div class="chart-card">' + chartLegend(agg.owners) + barChartSVG(agg.keys, agg.days, agg.owners) + '</div>' +
-    (agg.keys.length ? '<div class="section-title">Gesamt im Zeitverlauf</div><div class="chart-card">'+lineChartSVG(agg.keys, agg.days, agg.owners)+'</div>' : "") +
+    (me && activeTour ? '<div class="empty">Pins deiner laufenden Tour zählen bereits mit. Beim „Tour beenden“ kannst du die Zahl noch korrigieren.</div>' : "") +
+    '<div class="section-title">Flyer pro Tag' + (allKeys.length ? ' <span style="text-transform:none;letter-spacing:0;font-weight:600">· '+winKeys.length+' Tage</span>' : '') + '</div>' +
+    '<div class="chart-card">' + rangeBar + chartLegend(agg.owners) + barChartSVG(winKeys, agg.days, agg.owners) + '</div>' +
+    (allKeys.length ? '<div class="section-title">Gesamt im Zeitverlauf</div><div class="chart-card">'+lineChartSVG(allKeys, winKeys, agg.days, agg.owners)+'</div>' : "") +
+    kpiBlock +
+    (totalFlyers > 0 ? '<div class="section-title">Spaß-Fakten</div>' + funFactsHTML(totalFlyers) : "") +
     '<div class="section-title">Touren (antippen für Details)</div>' +
     '<div class="chart-card">' +
       (allTours.length === 0 ? '<div class="empty">Noch keine Touren gespeichert.</div>' :
@@ -1251,11 +1599,15 @@ function renderStats(){
     '</div>' +
     '<button class="linkbtn" id="switchWho">Person wechseln (aktuell: '+(me?esc(uname(me)):"–")+')</button>';
 
+  if($("funFormat")) $("funFormat").onchange = ()=>{ funFormat = $("funFormat").value; saveFunOpt(); renderStats(); };
+  if($("funPaper"))  $("funPaper").onchange  = ()=>{ funPaper  = $("funPaper").value;  saveFunOpt(); renderStats(); };
+  for(const b of v.querySelectorAll(".rng button"))
+    b.onclick = ()=>{ statRange = parseInt(b.dataset.r,10); ls("flyer-range", String(statRange)); renderStats(); };
   $("expPins").onclick = exportPinsCSV;
   $("expTours").onclick = exportToursCSV;
   $("expHand").onclick = exportHandoutsCSV;
   $("expGpx").onclick = exportGPX;
-  $("copyLink").onclick = copyShareLink;
+  $("copyLink").onclick = openInvite;
   $("changeDb").onclick = ()=>{
     $("dbInput").value = dbUrl || "";
     $("setupErr").textContent = "";
@@ -1303,13 +1655,244 @@ function exportGPX(){
   s += "</gpx>";
   download("flyer-pins.gpx", s, "application/gpx+xml");
 }
-function copyShareLink(){
+function copyInviteLink(userId){
   if(!dbUrl){ toast("Erst Datenbank einrichten"); return; }
-  const link = location.origin + location.pathname + "?db=" + encodeURIComponent(dbUrl);
-  const done = ()=>toast("Link kopiert ✓ – privat verschicken");
+  const link = location.origin + location.pathname + "?db=" + encodeURIComponent(dbUrl) +
+    (userId ? "&user=" + encodeURIComponent(userId) : "");
+  const done = ()=>toast(userId ? "Link für "+uname(userId)+" kopiert ✓ – privat verschicken" : "Link kopiert ✓ – privat verschicken");
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(link).then(done).catch(()=>window.prompt("Link manuell kopieren:", link));
   } else window.prompt("Link manuell kopieren:", link);
+}
+window.__inv = function(id){ copyInviteLink(id); };
+function renderInvite(){
+  $("invNewForm").style.display = "none";
+  $("invList").innerHTML =
+    userIds().map(id=>'<button class="who-btn" style="background:'+ucolor(id)+'" onclick="window.__inv(\''+id+'\')">Link für '+esc(uname(id))+'</button>').join("") +
+    '<button class="who-btn" style="background:var(--muted)" id="invPlain">Ohne Personen-Vorauswahl</button>' +
+    '<button class="who-btn new" id="invNewBtn">＋ Neue Person anlegen</button>';
+  $("invPlain").onclick = ()=>copyInviteLink(null);
+  $("invNewBtn").onclick = ()=>{
+    $("invNewForm").style.display = "block";
+    renderSwatches("invSwatches");
+    $("invName").focus();
+  };
+}
+function openInvite(){
+  renderInvite();
+  $("inviteOverlay").classList.remove("hidden");
+}
+
+/* ============================================================
+   13b) Straßen-Abdeckung (OpenStreetMap via Overpass)
+   ============================================================ */
+const ST_SAMPLE_M = 20;      // Abstand der Prüfpunkte entlang einer Straße
+const ST_RADIUS_M = 25;      // bis hierhin gilt ein Pin für die Straße
+const ST_DONE = 0.8;         // ab 80 % geprüfter Punkte: erledigt
+const ST_PART = 0.25;        // darunter: offen, dazwischen: teilweise
+const M_PER_LAT = 111320;
+const OVERPASS = "https://overpass-api.de/api/interpreter";
+const HW = "residential|living_street|unclassified|tertiary|secondary|primary|pedestrian|road";
+const PL = "city|town|village|hamlet|suburb|quarter|neighbourhood";
+
+let streets = null;          // {ts, ways:[{n, loc, pts}]}
+let stFilter = "off", stMin = 0.2, stUseTracks = true, stUseSkip = true;
+let stCov = null, stDirty = true;
+
+function mPerLng(lat){ return M_PER_LAT * Math.cos(lat*Math.PI/180); }
+function stSave(){
+  try{ localStorage.setItem("flyer-streets", JSON.stringify(streets)); }
+  catch(e){ toast("Zu viele Straßen für den Gerätespeicher – kleineren Ausschnitt laden"); }
+}
+function stLoadLS(){
+  try{
+    const raw = localStorage.getItem("flyer-streets");
+    if(raw){ streets = JSON.parse(raw); stDirty = true; }
+  }catch(e){ streets = null; }
+  try{
+    const o = JSON.parse(localStorage.getItem("flyer-stopt") || "null");
+    if(o){
+      stFilter = o.f || "off"; stMin = (o.m != null ? o.m : 0.2);
+      stUseTracks = o.t !== false; stUseSkip = o.s !== false;
+    }
+  }catch(e){}
+}
+function stSaveOpt(){
+  try{ localStorage.setItem("flyer-stopt", JSON.stringify({f:stFilter, m:stMin, t:stUseTracks, s:stUseSkip})); }catch(e){}
+}
+/* Alle Punkte, die als "hier war jemand" gelten – in einem Raster für schnelle Suche */
+function stBuildIndex(){
+  const pts = [];
+  for(const o of dataOwners()){
+    for(const p of (data.pins[o]||[]))
+      if(p.t==="f" || (stUseSkip && p.t==="s")) pts.push([p.lat, p.lng]);
+    if(stUseTracks){
+      const trs = data.tracks[o] || {};
+      for(const k in trs){
+        const arr = trs[k];
+        if(Array.isArray(arr)) for(const q of arr) pts.push([q[0], q[1]]);
+      }
+    }
+  }
+  if(!pts.length) return null;
+  const mLng = mPerLng(pts[0][0]);
+  const grid = new Map();
+  for(const p of pts){
+    const key = Math.floor(p[1]*mLng/ST_RADIUS_M) + ":" + Math.floor(p[0]*M_PER_LAT/ST_RADIUS_M);
+    let a = grid.get(key);
+    if(!a){ a = []; grid.set(key, a); }
+    a.push(p);
+  }
+  return { grid:grid, mLng:mLng };
+}
+function stNear(idx, lat, lng){
+  const gx = Math.floor(lng*idx.mLng/ST_RADIUS_M), gy = Math.floor(lat*M_PER_LAT/ST_RADIUS_M);
+  for(let dx=-1; dx<=1; dx++) for(let dy=-1; dy<=1; dy++){
+    const a = idx.grid.get((gx+dx)+":"+(gy+dy));
+    if(!a) continue;
+    for(const p of a){
+      const dLat = (p[0]-lat)*M_PER_LAT, dLng = (p[1]-lng)*idx.mLng;
+      if(dLat*dLat + dLng*dLng <= ST_RADIUS_M*ST_RADIUS_M) return true;
+    }
+  }
+  return false;
+}
+function stSamples(pts){
+  const out = [];
+  for(let i=1; i<pts.length; i++){
+    const a = pts[i-1], b = pts[i];
+    const d = distM({lat:a[0],lng:a[1]}, {lat:b[0],lng:b[1]});
+    const steps = Math.max(1, Math.round(d/ST_SAMPLE_M));
+    for(let k=0; k<steps; k++){
+      const t = (k+0.5)/steps;
+      out.push([a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t]);
+    }
+  }
+  if(!out.length && pts.length) out.push(pts[0]);
+  return out;
+}
+function stCompute(){
+  stCov = null;
+  if(!streets || !streets.ways || !streets.ways.length) return;
+  const idx = stBuildIndex();
+  const ways = [], locs = {};
+  for(const w of streets.ways){
+    const samples = stSamples(w.pts);
+    let hit = 0;
+    if(idx) for(const sm of samples) if(stNear(idx, sm[0], sm[1])) hit++;
+    const cov = samples.length ? hit/samples.length : 0;
+    ways.push({ w:w, cov:cov });
+    const key = w.loc || "Ohne Ortszuordnung";
+    if(!locs[key]) locs[key] = { n:0, hit:0, ways:0 };
+    locs[key].n += samples.length; locs[key].hit += hit; locs[key].ways++;
+  }
+  stCov = { ways:ways, locs:locs };
+  stDirty = false;
+}
+function stLocCov(name){
+  const a = stCov && stCov.locs[name || "Ohne Ortszuordnung"];
+  return a && a.n ? a.hit/a.n : 0;
+}
+function renderStreets(){
+  if(!streetLayer) return;
+  streetLayer.clearLayers();
+  if(stFilter === "off" || !streets) return;
+  if(stDirty || !stCov) stCompute();
+  if(!stCov) return;
+  for(const it of stCov.ways){
+    const locName = it.w.loc || "Ohne Ortszuordnung";
+    if(stLocCov(locName) < stMin) continue;
+    const done = it.cov >= ST_DONE;
+    const open = it.cov < ST_PART;
+    if(stFilter === "open" && done) continue;
+    if(stFilter === "done" && !done) continue;
+    const col = done ? "#1E8A5A" : (open ? "#C0392B" : "#C8772A");
+    L.polyline(it.w.pts, { color:col, weight:6, opacity:0.55, lineCap:"round", lineJoin:"round" })
+      .bindPopup('<b>'+esc(it.w.n)+'</b><br>'+Math.round(it.cov*100)+' % abgedeckt<br>'+esc(locName))
+      .addTo(streetLayer);
+  }
+}
+function renderStLocList(){
+  const info = $("stInfo"), el = $("stLocList");
+  if(!streets || !streets.ways || !streets.ways.length){
+    info.textContent = "Noch keine Straßen geladen. Karte auf euer Gebiet zoomen und „Straßen laden“ drücken.";
+    el.innerHTML = "";
+    return;
+  }
+  if(stDirty || !stCov) stCompute();
+  info.innerHTML = streets.ways.length + " Straßen geladen · Stand " + fmtTime(streets.ts);
+  const rows = Object.keys(stCov.locs).map(k=>({
+    name:k, cov: stCov.locs[k].n ? stCov.locs[k].hit/stCov.locs[k].n : 0, ways: stCov.locs[k].ways
+  })).sort((a,b)=>b.cov-a.cov);
+  el.innerHTML = '<table><tr><th>Ortschaft</th><th>Straßen</th><th>Abdeckung</th></tr>'+
+    rows.map(r=>{
+      const on = r.cov >= stMin;
+      return '<tr style="'+(on?'':'opacity:.45')+'"><td>'+esc(r.name)+'</td><td style="text-align:right">'+r.ways+
+        '</td><td style="text-align:right;font-weight:700;color:'+(on?'var(--ink)':'var(--muted)')+'">'+Math.round(r.cov*100)+' %</td></tr>';
+    }).join("")+'</table>'+
+    '<div class="empty">Blass = wird auf der Karte ausgeblendet, weil dort noch zu wenig verteilt wurde.</div>';
+}
+function stNearestPlace(pts, places){
+  if(!places.length) return null;
+  const mid = pts[Math.floor(pts.length/2)];
+  let best = null, bestD = Infinity;
+  for(const p of places){
+    const d = distM({lat:mid[0],lng:mid[1]}, {lat:p.lat,lng:p.lng});
+    if(d < bestD){ bestD = d; best = p; }
+  }
+  return bestD <= 6000 ? best.n : null;
+}
+async function stFetchStreets(){
+  const b = map.getBounds();
+  const sw = b.getSouthWest(), ne = b.getNorthEast();
+  const wKm = distM({lat:sw.lat,lng:sw.lng}, {lat:sw.lat,lng:ne.lng})/1000;
+  const hKm = distM({lat:sw.lat,lng:sw.lng}, {lat:ne.lat,lng:sw.lng})/1000;
+  if(wKm*hKm > 150){ toast("Ausschnitt zu groß – bitte näher heranzoomen"); return; }
+  const bbox = sw.lat.toFixed(5)+","+sw.lng.toFixed(5)+","+ne.lat.toFixed(5)+","+ne.lng.toFixed(5);
+  const q = '[out:json][timeout:90];(way["highway"~"^('+HW+')$"]["name"]('+bbox+'););out geom;node["place"~"^('+PL+')$"]('+bbox+');out;';
+  const btn = $("stLoadBtn");
+  btn.disabled = true;
+  $("stInfo").textContent = "Lade Straßen von OpenStreetMap … (kann etwas dauern)";
+  try{
+    const r = await fetch(OVERPASS, {
+      method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"},
+      body:"data="+encodeURIComponent(q)
+    });
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const j = await r.json();
+    const places = [], fresh = [];
+    for(const el of (j.elements||[])){
+      if(el.type === "node" && el.tags && el.tags.place && el.tags.name)
+        places.push({ n:el.tags.name, lat:el.lat, lng:el.lon });
+      else if(el.type === "way" && el.geometry && el.geometry.length > 1)
+        fresh.push({ n:(el.tags && el.tags.name) || "Straße", pts: el.geometry.map(g=>[+g.lat.toFixed(5), +g.lon.toFixed(5)]) });
+    }
+    for(const w of fresh) w.loc = stNearestPlace(w.pts, places);
+    // Mit bereits geladenen Straßen zusammenführen (mehrere Gebiete möglich)
+    const merged = new Map();
+    if(streets && streets.ways) for(const w of streets.ways) merged.set(w.n+"|"+w.pts[0][0]+","+w.pts[0][1], w);
+    for(const w of fresh) merged.set(w.n+"|"+w.pts[0][0]+","+w.pts[0][1], w);
+    const mp = new Map();
+    if(streets && streets.places) for(const p of streets.places) mp.set(p.n, p);
+    for(const p of places) mp.set(p.n, p);
+    streets = { ts:Date.now(), ways:Array.from(merged.values()), places:Array.from(mp.values()) };
+    stDirty = true;
+    stSave();
+    renderStLocList();
+    renderStreets();
+    toast(fresh.length+" Straßen geladen ✓");
+  }catch(err){
+    $("stInfo").textContent = "Laden fehlgeschlagen – der OpenStreetMap-Server ist manchmal überlastet. Bitte später erneut versuchen.";
+  }
+  btn.disabled = false;
+}
+function openStreets(){
+  $("stFilterSel").value = stFilter;
+  $("stMinSel").value = String(stMin);
+  $("stTracksCb").checked = stUseTracks;
+  $("stSkipCb").checked = stUseSkip;
+  renderStLocList();
+  $("streetsOverlay").classList.remove("hidden");
 }
 
 /* ============================================================
@@ -1342,7 +1925,31 @@ $("btnHeat").onclick = ()=>{
   renderPins();
   if(heatOn && typeof L.heatLayer !== "function") toast("Heatmap konnte nicht geladen werden (offline?)");
 };
+$("btnLayer").onclick = toggleBase;
+$("btnStreets").onclick = openStreets;
+$("stCloseBtn").onclick = ()=>$("streetsOverlay").classList.add("hidden");
+$("stLoadBtn").onclick = stFetchStreets;
+$("stClearBtn").onclick = ()=>{
+  streets = null; stCov = null; stDirty = true;
+  try{ localStorage.removeItem("flyer-streets"); }catch(e){}
+  renderStLocList(); renderStreets();
+  toast("Straßendaten gelöscht");
+};
+$("stFilterSel").onchange = ()=>{ stFilter = $("stFilterSel").value; stSaveOpt(); renderStreets(); };
+$("stMinSel").onchange = ()=>{ stMin = parseFloat($("stMinSel").value); stSaveOpt(); renderStLocList(); renderStreets(); };
+$("stTracksCb").onchange = ()=>{ stUseTracks = $("stTracksCb").checked; stDirty = true; stSaveOpt(); renderStLocList(); renderStreets(); };
+$("stSkipCb").onchange = ()=>{ stUseSkip = $("stSkipCb").checked; stDirty = true; stSaveOpt(); renderStLocList(); renderStreets(); };
 $("whoNewCancel").onclick = ()=>{ $("whoNewForm").style.display = "none"; };
+$("invClose").onclick = ()=>$("inviteOverlay").classList.add("hidden");
+$("invNewCancel").onclick = ()=>{ $("invNewForm").style.display = "none"; };
+$("invNewSave").onclick = ()=>{
+  const name = $("invName").value.trim();
+  if(!name){ toast("Bitte einen Namen eingeben"); $("invName").focus(); return; }
+  const id = createUserRecord(name);
+  $("invName").value = "";
+  renderInvite();
+  copyInviteLink(id);
+};
 $("whoNewSave").onclick = createUser;
 $("whoClose").onclick = ()=>{ if(me) $("whoOverlay").classList.add("hidden"); };
 $("tabMap").onclick = ()=>showTab("map");
@@ -1370,6 +1977,10 @@ async function startApp(){
   await loadAll();
   const saved = ls("flyer-me");
   if(saved && users[saved]) setMe(saved, false);
+  else if(wantUser && users[wantUser]){
+    setMe(wantUser, true);
+    toast("Willkommen, "+uname(wantUser)+"!");
+  }
   else { renderWho(); $("whoOverlay").classList.remove("hidden"); }
   migrate();
   updateCounters();
@@ -1394,16 +2005,23 @@ $("setupSave").onclick = async ()=>{
   $("setupSave").disabled = false;
 };
 (function boot(){
+  loadFunOpt();
+  const r = ls("flyer-range");
+  if(r !== null && r !== undefined && r !== "") statRange = parseInt(r,10) || 0;
   initMap();
+  stLoadLS();
   startGPS();
   let fromLink = null;
   try{
-    fromLink = new URLSearchParams(location.search).get("db");
+    const params = new URLSearchParams(location.search);
+    fromLink = params.get("db");
+    wantUser = params.get("user");
     if(!fromLink && location.hash.indexOf("#db=") === 0) fromLink = decodeURIComponent(location.hash.slice(4));
   }catch(e){}
   const n = normalizeDb(fromLink);
   if(n) ls("flyer-db", n);
   dbUrl = ls("flyer-db") || n;
+  if(n || wantUser){ try{ history.replaceState(null, "", location.pathname); }catch(e){} }
   if(dbUrl) startApp();
   else $("setupOverlay").classList.remove("hidden");
 })();
