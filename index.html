@@ -166,6 +166,13 @@
     70%{transform:scale(1.5);opacity:0}
     100%{transform:scale(1.5);opacity:0}
   }
+  .bar{height:7px;border-radius:4px;background:var(--line);overflow:hidden;min-width:52px}
+  .bar i{display:block;height:100%;border-radius:4px}
+  .cluster-label{background:none;border:0;pointer-events:none}
+  .cluster-label span{
+    display:block;text-align:center;font-size:11px;font-weight:800;color:#fff;line-height:14px;
+    text-shadow:0 1px 2px rgba(0,0,0,.55);
+  }
   .presence-label{background:var(--card);border:1px solid var(--line);border-radius:8px;font-weight:800;font-size:11px;padding:2px 7px;box-shadow:0 1px 4px rgba(0,0,0,.15)}
 </style>
 </head>
@@ -196,6 +203,7 @@
       <div class="map-banner" id="bfBanner">Nachtrag-Modus: auf die Karte tippen, um einen Pin zu setzen</div>
       <div class="map-banner" id="gpsBanner"></div>
       <div class="map-fabs">
+        <button class="map-fab" id="btnPins" title="Pins: normal / blass / aus">📍</button>
         <button class="map-fab" id="btnLayer" title="Karte / Satellit">🛰</button>
         <button class="map-fab" id="btnStreets" title="Straßen-Abdeckung">🛣</button>
         <button class="map-fab" id="btnHeat" title="Heatmap ein/aus">🔥</button>
@@ -300,6 +308,7 @@
     </div>
     <label style="display:flex;gap:9px;align-items:center;font-size:13.5px;margin-bottom:7px"><input type="checkbox" id="stTracksCb" checked style="width:18px;height:18px"> Laufwege (GPS-Tracks) zählen mit</label>
     <label style="display:flex;gap:9px;align-items:center;font-size:13.5px;margin-bottom:13px"><input type="checkbox" id="stSkipCb" checked style="width:18px;height:18px"> „Übersprungen“-Pins zählen mit</label>
+    <div class="empty" style="padding:0 0 10px">Tipp: Mit dem 📍-Knopf auf der Karte lassen sich die Pins blass schalten oder ausblenden – dann sind die Straßen gut sichtbar. Rot = offen, orange gestrichelt = teilweise, grün = erledigt.</div>
     <div id="stInfo" style="font-size:13px;color:var(--muted);margin-bottom:10px"></div>
     <div id="stLocList"></div>
     <div class="modal-btns">
@@ -339,6 +348,19 @@
     <div class="modal-btns">
       <button class="btn-secondary" id="tourCancel">Weiter sammeln</button>
       <button class="btn-primary" id="tourSave">Tour speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Touren rückwirkend erkennen -->
+<div class="overlay hidden" id="rebuildOverlay">
+  <div class="modal">
+    <h2>Touren automatisch erkennen</h2>
+    <p>Gruppiert deine Pins nach Pausen zu Touren. Von Hand gespeicherte Touren bleiben unangetastet – nur automatisch erzeugte werden neu berechnet.</p>
+    <div id="rbBody"></div>
+    <div class="modal-btns">
+      <button class="btn-secondary" id="rbCancel">Abbrechen</button>
+      <button class="btn-primary" id="rbSave">Übernehmen</button>
     </div>
   </div>
 </div>
@@ -400,6 +422,8 @@ let follow = true, progMove = false, firstFix = true;
 let myPos = null, myAcc = null;
 let map, pinLayer, trackLayer, streetLayer, heatLayer = null, meMarker = null, accCircle = null;
 let baseOSM = null, baseSat = null, satLabels = null, satOn = false;
+let pinMode = 0;              // 0 = normal, 1 = blass, 2 = aus
+const CLUSTER_ZOOM = 16;      // darunter werden Pins zusammengefasst
 let presenceMarkers = {};          // nutzerId -> Marker
 let saving = false, flushing = false, loaded = false;
 let newColor = null;
@@ -858,6 +882,7 @@ function initMap(){
   progMove = false;
   // Eigene Ebenen, damit der Standort immer über den Pins liegt
   map.createPane("accPane").style.zIndex = 350;   // über den Kacheln, aber unter den Pins
+  map.createPane("streetPane").style.zIndex = 620; // Straßen-Abdeckung über den Pins
   map.createPane("mePane").style.zIndex = 655;
   map.getPane("mePane").style.pointerEvents = "none";
   map.getPane("accPane").style.pointerEvents = "none";
@@ -873,6 +898,7 @@ function initMap(){
   satOn = ls("flyer-sat") === "1";
   applyBase();
   streetLayer = L.layerGroup().addTo(map);
+  map.on("zoomend", ()=>renderPins());
   trackLayer = L.layerGroup().addTo(map);
   pinLayer = L.layerGroup().addTo(map);
   map.on("dragstart", ()=>{ if(!progMove) setFollow(false); });
@@ -893,6 +919,20 @@ function applyBase(){
   const b = $("btnLayer");
   if(b){ b.textContent = satOn ? "🗺" : "🛰"; b.classList.toggle("toggled", satOn); }
 }
+function updatePinBtn(){
+  const b = $("btnPins");
+  if(!b) return;
+  b.textContent = pinMode === 2 ? "🚫" : "📍";
+  b.classList.toggle("toggled", pinMode !== 0);
+  b.style.opacity = pinMode === 1 ? "0.75" : "1";
+}
+function cyclePins(){
+  pinMode = (pinMode + 1) % 3;
+  ls("flyer-pinmode", String(pinMode));
+  updatePinBtn();
+  renderPins();
+  toast(pinMode===0 ? "Pins: normal" : pinMode===1 ? "Pins: blass (Straßen besser sichtbar)" : "Pins: ausgeblendet");
+}
 function toggleBase(){
   satOn = !satOn;
   ls("flyer-sat", satOn ? "1" : "0");
@@ -910,15 +950,17 @@ function centerOnMe(){
   map.setView([myPos.lat,myPos.lng], Math.max(map.getZoom(), 16), {animate:true});
   setTimeout(()=>{ progMove = false; }, 450);
 }
-function pinStyle(pin, owner){
+function pinStyle(pin, owner, rad, fade){
   const col = ucolor(owner);
   const today = isToday(pin.ts);
+  const f = (fade === undefined) ? 1 : fade;
+  const r = rad || 7;
   return {
-    radius: today ? 7 : 6,
+    radius: today ? r : Math.max(3, r-1),
     color: col, weight: 2,
-    opacity: today ? 1 : 0.65,
+    opacity: (today ? 1 : 0.65) * f,
     fillColor: pin.t==="s" ? "#98A3A0" : col,
-    fillOpacity: today ? 0.9 : 0.5
+    fillOpacity: (today ? 0.9 : 0.5) * f
   };
 }
 function tourLabel(owner, tourId){
@@ -926,35 +968,97 @@ function tourLabel(owner, tourId){
   if(t) return fmtDayFull(dayKey(t.startTs || t.ts));
   return activeTour && tourId===activeTour.id ? "läuft gerade" : "–";
 }
+function pinRadius(){
+  const z = map.getZoom();
+  if(z >= 18) return 7;
+  if(z >= 17) return 6;
+  return 5;
+}
+function clusterCellM(){         // Rastergröße abhängig von der Zoomstufe
+  const z = map.getZoom();
+  if(z >= 15) return 120;
+  if(z >= 13) return 400;
+  if(z >= 11) return 1500;
+  return 6000;
+}
 function renderPins(){
   pinLayer.clearLayers();
   trackLayer.clearLayers();
   const heatPts = [];
+  const zoom = map.getZoom();
+  const clustered = zoom < CLUSTER_ZOOM;
+  const fade = pinMode === 1 ? 0.4 : 1;
+
   for(const owner of dataOwners()){
     const col = ucolor(owner);
-    // GPS-Tracks
     const trs = data.tracks[owner] || {};
     for(const tid of Object.keys(trs)){
       const pts = trs[tid];
       if(Array.isArray(pts) && pts.length > 1)
-        L.polyline(pts, {color:col, weight:3, opacity:0.45, lineJoin:"round"}).addTo(trackLayer);
+        L.polyline(pts, {color:col, weight:3, opacity:0.45*(pinMode===2?0.35:fade), lineJoin:"round"}).addTo(trackLayer);
     }
-    // Pins
-    for(const pin of (data.pins[owner]||[])){
-      const m = L.circleMarker([pin.lat,pin.lng], pinStyle(pin, owner));
-      const own = owner === me;
-      m.bindPopup(
-        '<b style="color:'+col+'">'+esc(uname(owner))+'</b> · '+
-        (pin.t==="s" ? "Übersprungen" : "Eingeworfen: "+(pin.n||1)+" Flyer") +
-        (pin.m ? " (nachgetragen)" : "") + (pin.a ? " (auto)" : "") +
-        "<br>" + fmtTime(pin.ts) + " Uhr" +
-        (pin.tour ? "<br>Tour: " + tourLabel(owner, pin.tour) : "") +
-        (own ? '<br><button class="pop-del" onclick="window.__delPin(\''+pin.id+'\')">Pin löschen</button>' : "")
-      );
-      m.addTo(pinLayer);
+    for(const pin of (data.pins[owner]||[]))
       if(pin.t==="f") heatPts.push([pin.lat, pin.lng, Math.min(2, 0.6 + (pin.n||1)*0.3)]);
+  }
+
+  if(pinMode !== 2){
+    if(clustered){
+      // Pins zu Gruppen zusammenfassen, damit die Karte beim Rauszoomen frei bleibt
+      const cell = clusterCellM();
+      const groups = new Map();
+      for(const owner of dataOwners()){
+        for(const pin of (data.pins[owner]||[])){
+          if(pin.t !== "f") continue;
+          const mLng = 111320*Math.cos(pin.lat*Math.PI/180);
+          const key = Math.round(pin.lng*mLng/cell)+":"+Math.round(pin.lat*111320/cell);
+          let g = groups.get(key);
+          if(!g){ g = {lat:0, lng:0, n:0, fly:0, by:{}}; groups.set(key, g); }
+          g.lat += pin.lat; g.lng += pin.lng; g.n++;
+          g.fly += (pin.n||1);
+          g.by[owner] = (g.by[owner]||0) + (pin.n||1);
+        }
+      }
+      for(const g of groups.values()){
+        const lat = g.lat/g.n, lng = g.lng/g.n;
+        let top = null, topV = -1;
+        for(const o in g.by) if(g.by[o] > topV){ topV = g.by[o]; top = o; }
+        const col = ucolor(top);
+        const r = Math.max(7, Math.min(19, 6 + Math.sqrt(g.fly)*1.7));
+        const c = L.circleMarker([lat,lng], {
+          radius:r, color:"#fff", weight:1.5, opacity:0.9*fade,
+          fillColor:col, fillOpacity:0.72*fade
+        });
+        const list = Object.keys(g.by).map(o=>esc(uname(o))+": "+g.by[o]).join("<br>");
+        c.bindPopup('<b>'+g.fly+' Flyer</b> in '+g.n+(g.n===1?' Pin':' Pins')+'<br>'+list+'<br><i>Zum Anzeigen der einzelnen Pins hineinzoomen.</i>');
+        c.addTo(pinLayer);
+        if(g.fly >= 4 && r >= 11)
+          L.marker([lat,lng], {
+            interactive:false, keyboard:false,
+            icon: L.divIcon({ className:"cluster-label", html:'<span>'+g.fly+'</span>', iconSize:[38,14], iconAnchor:[19,7] })
+          }).addTo(pinLayer);
+      }
+    }else{
+      const rad = pinRadius();
+      for(const owner of dataOwners()){
+        const col = ucolor(owner);
+        for(const pin of (data.pins[owner]||[])){
+          const st = pinStyle(pin, owner, rad, fade);
+          const m = L.circleMarker([pin.lat,pin.lng], st);
+          const own = owner === me;
+          m.bindPopup(
+            '<b style="color:'+col+'">'+esc(uname(owner))+'</b> · '+
+            (pin.t==="s" ? "Übersprungen" : "Eingeworfen: "+(pin.n||1)+" Flyer") +
+            (pin.m ? " (nachgetragen)" : "") + (pin.a ? " (auto)" : "") +
+            "<br>" + fmtTime(pin.ts) + " Uhr" +
+            (pin.tour ? "<br>Tour: " + tourLabel(owner, pin.tour) : "") +
+            (own ? '<br><button class="pop-del" onclick="window.__delPin(\''+pin.id+'\')">Pin löschen</button>' : "")
+          );
+          m.addTo(pinLayer);
+        }
+      }
     }
   }
+
   if(heatLayer){ map.removeLayer(heatLayer); heatLayer = null; }
   if(heatOn && typeof L.heatLayer === "function" && heatPts.length){
     heatLayer = L.heatLayer(heatPts, {radius:22, blur:16, maxZoom:18, minOpacity:0.25}).addTo(map);
@@ -1075,6 +1179,7 @@ function createPin(type, pos, isBackfill){
   vibrate(isBackfill ? 60 : 90);
   const what = type==="f" ? (n>1 ? n+" Flyer" : "Eingeworfen") : "Übersprungen";
   toast((isBackfill ? "Nachgetragen: " : "")+what+" gespeichert ✓");
+  autoStartCheck();
 }
 function addPin(type){
   if(Date.now() < cooldownUntil) return;
@@ -1163,24 +1268,137 @@ function toggleTour(){
     $("tourOverlay").classList.remove("hidden");
   }
 }
-function saveTour(){
-  if(!activeTour){ $("tourOverlay").classList.add("hidden"); return; }
-  const endTs = Date.now();
-  const s = calcTour(me, activeTour.id, activeTour.startTs, endTs);
-  const val = Math.max(0, parseInt($("tourFlyers").value,10) || 0);
+function finishTour(tour, endTs, flyers, auto){
+  const s = calcTour(me, tour.id, tour.startTs, endTs);
   data.tours[me].push({
-    id:activeTour.id, startTs:activeTour.startTs, ts:endTs,
-    pins:s.pins, flyers:val, skip:s.skip, dist:Math.round(s.dist)
+    id:tour.id, startTs:tour.startTs, ts:endTs,
+    pins:s.pins, flyers:(flyers == null ? s.fly : flyers),
+    skip:s.skip, dist:Math.round(s.dist), auto:!!auto
   });
   activeTour = null;
   saveActiveTourLS();
   session = [];
-  $("tourOverlay").classList.add("hidden");
   updateTourUI(); updateCounters();
   markDirtyAndPersist("tours");
   if(dirty.tracks) persist("tracks");
-  toast("Tour gespeichert: "+val+" Flyer 🏁");
   renderStatsIfVisible();
+}
+function saveTour(){
+  if(!activeTour){ $("tourOverlay").classList.add("hidden"); return; }
+  const val = Math.max(0, parseInt($("tourFlyers").value,10) || 0);
+  finishTour(activeTour, Date.now(), val, false);
+  $("tourOverlay").classList.add("hidden");
+  toast("Tour gespeichert: "+val+" Flyer 🏁");
+}
+
+/* ---------- Touren automatisch starten & beenden ---------- */
+const AUTO_MIN_PINS = 3;      // so viele Pins an verschiedenen Orten starten eine Tour
+const AUTO_MIN_DIST = 25;     // Meter, ab denen ein Pin als anderer Ort gilt
+let autoTours = true;
+let autoGapMin = 60;          // Pause in Minuten, die eine Tour beendet
+function autoGapMs(){ return autoGapMin * 60000; }
+function ownPins(){ return (me && data.pins[me]) ? data.pins[me] : []; }
+function distinctSpots(pins){
+  const spots = [];
+  for(const p of pins) if(!spots.some(q=>distM(q, p) < AUTO_MIN_DIST)) spots.push(p);
+  return spots.length;
+}
+function autoStartCheck(){
+  if(!autoTours || activeTour || !me) return;
+  const now = Date.now();
+  const recent = ownPins().filter(p=>!p.tour && (now - p.ts) <= autoGapMs()).sort((a,b)=>a.ts-b.ts);
+  if(recent.length < AUTO_MIN_PINS || distinctSpots(recent) < AUTO_MIN_PINS) return;
+  activeTour = { id:uid(), startTs:recent[0].ts, auto:true };
+  for(const p of recent) p.tour = activeTour.id;
+  saveActiveTourLS();
+  markDirtyAndPersist("pins");
+  updateTourUI();
+  toast("Tour automatisch gestartet ▶ "+recent.length+" Pins übernommen");
+}
+function autoEndCheck(){
+  if(!autoTours || !activeTour || !me) return;
+  const pins = ownPins().filter(p=>p.tour === activeTour.id);
+  if(!pins.length){
+    // Leere Tour, die lange offen steht: still verwerfen
+    if(Date.now() - activeTour.startTs > autoGapMs()*2){
+      activeTour = null; saveActiveTourLS(); updateTourUI();
+    }
+    return;
+  }
+  const lastTs = Math.max.apply(null, pins.map(p=>p.ts));
+  if(Date.now() - lastTs < autoGapMs()) return;
+  finishTour(activeTour, lastTs, null, true);
+  toast("Tour automatisch beendet 🏁 (nach "+autoGapMin+" min Pause)");
+}
+setInterval(autoEndCheck, 60000);
+
+/* ---------- Rückwirkende Touren-Erkennung ---------- */
+function groupIntoTours(pins, gapMs){
+  const sorted = pins.slice().sort((a,b)=>a.ts-b.ts);
+  const groups = [];
+  let cur = null;
+  for(const p of sorted){
+    if(!cur || (p.ts - cur[cur.length-1].ts) > gapMs){ cur = [p]; groups.push(cur); }
+    else cur.push(p);
+  }
+  return groups;
+}
+function rebuildCandidates(){
+  // Pins ohne Tour + Pins aus automatisch/beim Update erzeugten Touren (manuelle bleiben unangetastet)
+  const replaceable = new Set();
+  for(const t of (data.tours[me]||[])) if(t.auto || t.migrated) replaceable.add(t.id);
+  const pins = ownPins().filter(p=>{
+    if(activeTour && p.tour === activeTour.id) return false;
+    return !p.tour || replaceable.has(p.tour);
+  });
+  return { pins:pins, replaceable:replaceable };
+}
+function openRebuild(){
+  if(!me) return;
+  const cand = rebuildCandidates();
+  const groups = groupIntoTours(cand.pins, autoGapMin*60000).filter(g=>g.length >= 2);
+  const rows = groups.map(g=>{
+    const fly = g.reduce((x,p)=>x+pinFly(p), 0);
+    const dur = g[g.length-1].ts - g[0].ts;
+    return '<div class="kv"><span>'+fmtDayFull(dayKey(g[0].ts))+' · '+fmtClock(g[0].ts)+'–'+fmtClock(g[g.length-1].ts)+
+      '<br><span style="font-size:11.5px;color:var(--muted)">'+g.length+' Pins · '+fmtDur(dur)+'</span></span><b>'+fly+' Flyer</b></div>';
+  }).join("");
+  $("rbBody").innerHTML =
+    '<div class="field" style="margin-bottom:12px"><label for="rbGap">Pause, die eine Tour beendet</label>'+
+    '<select id="rbGap">'+[30,60,90,120,180].map(m=>'<option value="'+m+'"'+(m===autoGapMin?' selected':'')+'>'+m+' Minuten</option>').join("")+'</select></div>'+
+    (groups.length
+      ? '<p style="margin:0 0 8px">Aus '+cand.pins.length+' Pins werden <b>'+groups.length+'</b> Touren erkannt:</p>'+
+        '<div style="max-height:38dvh;overflow-y:auto">'+rows+'</div>'
+      : '<div class="empty">Keine zusammenhängenden Pin-Gruppen gefunden. Entweder sind schon alle Pins Touren zugeordnet, oder es liegen zu wenige Pins pro Zeitfenster vor.</div>');
+  $("rbSave").disabled = groups.length === 0;
+  $("rbGap").onchange = ()=>{ autoGapMin = parseInt($("rbGap").value,10) || 60; ls("flyer-gap", String(autoGapMin)); openRebuild(); };
+  $("rebuildOverlay").classList.remove("hidden");
+}
+function runRebuild(){
+  const cand = rebuildCandidates();
+  const groups = groupIntoTours(cand.pins, autoGapMin*60000).filter(g=>g.length >= 2);
+  if(!groups.length){ $("rebuildOverlay").classList.add("hidden"); return; }
+  // Ersetzbare Touren entfernen, Pins neu zuordnen
+  data.tours[me] = (data.tours[me]||[]).filter(t=>!cand.replaceable.has(t.id));
+  for(const p of cand.pins) delete p.tour;
+  for(const g of groups){
+    const id = uid();
+    for(const p of g) p.tour = id;
+    const s = { pins:g.filter(p=>p.t==="f").length, fly:g.reduce((x,p)=>x+pinFly(p),0), skip:g.filter(p=>p.t==="s").length };
+    let dist = 0;
+    const f = g.filter(p=>p.t==="f").sort((a,b)=>a.ts-b.ts);
+    for(let i=1;i<f.length;i++) dist += distM(f[i-1], f[i]);
+    data.tours[me].push({
+      id:id, startTs:g[0].ts, ts:g[g.length-1].ts,
+      pins:s.pins, flyers:s.fly, skip:s.skip, dist:Math.round(dist), auto:true
+    });
+  }
+  data.tours[me].sort((a,b)=>(a.startTs||a.ts)-(b.startTs||b.ts));
+  markDirtyAndPersist("pins");
+  markDirtyAndPersist("tours");
+  $("rebuildOverlay").classList.add("hidden");
+  updateCounters(); renderPins(); renderStatsIfVisible();
+  toast(groups.length+" Touren erstellt ✓");
 }
 function updateTourUI(){
   $("btnTour").textContent = activeTour ? "🏁 Tour beenden" : "▶ Tour starten";
@@ -1190,7 +1408,7 @@ function updateTourUI(){
 function tickTourStrip(){
   if(!activeTour){ $("tourStrip").textContent = "Keine aktive Tour"; return; }
   const s = me ? calcTour(me, activeTour.id, activeTour.startTs, Date.now()) : {fly:0};
-  $("tourStrip").innerHTML = 'Tour läuft: <b>'+s.fly+'</b> Flyer · '+fmtDur(Date.now()-activeTour.startTs);
+  $("tourStrip").innerHTML = (activeTour.auto ? 'Auto-Tour: ' : 'Tour läuft: ')+'<b>'+s.fly+'</b> Flyer · '+fmtDur(Date.now()-activeTour.startTs);
 }
 setInterval(tickTourStrip, 5000);
 
@@ -1202,7 +1420,8 @@ window.__tourDetail = function(owner, id){
   $("detailBody").innerHTML =
     '<div class="kv"><span>Flyer (eingetragen)</span><b>'+t.flyers+'</b></div>' +
     statsHTML(s, t.startTs, t.ts) +
-    (t.migrated ? '<p style="margin-top:10px">Diese Tour wurde beim Update automatisch aus bestehenden Pins erstellt.</p>' : '');
+    (t.migrated ? '<p style="margin-top:10px">Diese Tour wurde beim Update automatisch aus bestehenden Pins erstellt.</p>'
+      : t.auto ? '<p style="margin-top:10px">Automatisch erkannte Tour. Die Flyer-Zahl entspricht der Summe der Pins.</p>' : '');
   $("detailOverlay").classList.remove("hidden");
   $("detailMap").onclick = ()=>{
     const pts = tourPins(owner, id).map(p=>[p.lat,p.lng]);
@@ -1505,6 +1724,106 @@ function funFactsHTML(flyers){
   '</div>';
 }
 
+/* ---------- Ortschafts-Übersicht ---------- */
+function placeNodes(){ return (streets && streets.places) ? streets.places : []; }
+function placeStats(){
+  const places = placeNodes();
+  const rows = {};
+  const add = name => {
+    if(!rows[name]) rows[name] = { name:name, pins:0, fly:0, skip:0, by:{}, cov:null, m:0, mDone:0, ways:0, last:0 };
+    return rows[name];
+  };
+  // Pins der nächstgelegenen Ortschaft zuordnen
+  const UNK = "Ohne Ortszuordnung";
+  for(const o of dataOwners()){
+    for(const pin of (data.pins[o]||[])){
+      let name = UNK, bd = Infinity;
+      for(const p of places){
+        const d = distM({lat:pin.lat,lng:pin.lng}, {lat:p.lat,lng:p.lng});
+        if(d < bd){ bd = d; name = p.n; }
+      }
+      if(bd > 15000) name = UNK;
+      const r = add(name);
+      if(pin.t === "f"){ r.pins++; r.fly += (pin.n||1); r.by[o] = (r.by[o]||0) + (pin.n||1); }
+      else r.skip++;
+      if(pin.ts > r.last) r.last = pin.ts;
+    }
+  }
+  // Straßen-Abdeckung ergänzen, falls geladen
+  if(streets && streets.ways && streets.ways.length){
+    if(stDirty || !stCov) stCompute();
+    if(stCov) for(const k in stCov.locs){
+      const a = stCov.locs[k];
+      const r = add(k);
+      r.cov = a.n ? a.hit/a.n : 0;
+      r.m = a.n * ST_SAMPLE_M;
+      r.mDone = a.hit * ST_SAMPLE_M;
+      r.ways = a.ways;
+    }
+  }
+  return Object.keys(rows).map(k=>rows[k]).sort((a,b)=> b.pins - a.pins || b.fly - a.fly);
+}
+function placesHTML(){
+  const rows = placeStats();
+  if(!rows.length) return '<div class="chart-card"><div class="empty">Noch keine Pins gesetzt.</div></div>';
+  const hasCov = rows.some(r=>r.cov != null);
+  const body = rows.map(r=>{
+    const pct = r.cov != null ? Math.round(r.cov*100) : null;
+    const col = pct == null ? "var(--muted)" : (pct >= 80 ? "var(--ok)" : pct >= 30 ? "var(--warn)" : "var(--bad)");
+    const barCell = pct == null
+      ? '<span style="color:var(--muted)">–</span>'
+      : '<div style="display:flex;align-items:center;gap:6px;justify-content:flex-end">'+
+          '<div class="bar" style="width:56px"><i style="width:'+pct+'%;background:'+col+'"></i></div>'+
+          '<b style="color:'+col+';min-width:34px;display:inline-block;text-align:right">'+pct+' %</b></div>';
+    const who = Object.keys(r.by).map(o=>'<span style="color:'+ucolor(o)+';font-weight:700">'+esc(uname(o))+' '+r.by[o]+'</span>').join(" · ");
+    return '<tr><td><div style="font-weight:700">'+esc(r.name)+'</div>'+
+      '<div style="font-size:11px;color:var(--muted)">'+(who || "–")+
+      (r.m ? ' · '+nfmt(r.mDone/1000,1)+'/'+nfmt(r.m/1000,1)+' km' : '')+
+      (r.skip ? ' · '+r.skip+' übersprungen' : '')+'</div></td>'+
+      '<td style="text-align:right">'+r.pins+'</td>'+
+      '<td style="text-align:right;font-weight:700">'+r.fly+'</td>'+
+      '<td style="text-align:right">'+barCell+'</td></tr>';
+  }).join("");
+  return '<div class="chart-card">'+
+    '<table><tr><th>Ortschaft</th><th>Pins</th><th>Flyer</th><th>Abdeckung</th></tr>'+body+'</table>'+
+    (hasCov
+      ? '<div class="empty">Abdeckung = Anteil der Straßenlänge, an der ihr wart (Schätzung, Straßenseiten werden nicht unterschieden).</div>'
+      : '<div class="empty">Für die Abdeckung in Prozent im Karten-Tab über 🛣 einmal die Straßen laden. <button class="smallbtn" id="loadPlacesBtn" style="margin-top:8px">Nur Ortsnamen laden</button></div>')+
+  '</div>';
+}
+async function fetchPlacesOnly(){
+  const pins = [];
+  for(const o of dataOwners()) for(const p of (data.pins[o]||[])) pins.push(p);
+  if(!pins.length){ toast("Noch keine Pins vorhanden"); return; }
+  let s0=90, n0=-90, w0=180, e0=-180;
+  for(const p of pins){
+    s0=Math.min(s0,p.lat); n0=Math.max(n0,p.lat);
+    w0=Math.min(w0,p.lng); e0=Math.max(e0,p.lng);
+  }
+  const pad = 0.08;
+  const bbox = (s0-pad).toFixed(4)+","+(w0-pad).toFixed(4)+","+(n0+pad).toFixed(4)+","+(e0+pad).toFixed(4);
+  const q = '[out:json][timeout:60];node["place"~"^('+PL+')$"]('+bbox+');out;';
+  const btn = $("loadPlacesBtn");
+  if(btn){ btn.disabled = true; btn.textContent = "Lädt …"; }
+  try{
+    const r = await fetch(OVERPASS, {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"}, body:"data="+encodeURIComponent(q)});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const j = await r.json();
+    const mp = new Map();
+    if(streets && streets.places) for(const p of streets.places) mp.set(p.n, p);
+    for(const el of (j.elements||[]))
+      if(el.tags && el.tags.name) mp.set(el.tags.name, {n:el.tags.name, lat:el.lat, lng:el.lon});
+    streets = streets || { ts:Date.now(), ways:[] };
+    streets.places = Array.from(mp.values());
+    stSave();
+    renderStats();
+    toast(mp.size+" Ortschaften geladen ✓");
+  }catch(e){
+    toast("Laden fehlgeschlagen – bitte später erneut versuchen");
+    if(btn){ btn.disabled = false; btn.textContent = "Nur Ortsnamen laden"; }
+  }
+}
+
 function renderStats(){
   const v = $("view-stats");
   const agg = aggregate();
@@ -1578,11 +1897,12 @@ function renderStats(){
     (allKeys.length ? '<div class="section-title">Gesamt im Zeitverlauf</div><div class="chart-card">'+lineChartSVG(allKeys, winKeys, agg.days, agg.owners)+'</div>' : "") +
     kpiBlock +
     (totalFlyers > 0 ? '<div class="section-title">Spaß-Fakten</div>' + funFactsHTML(totalFlyers) : "") +
+    '<div class="section-title">Ortschaften</div>' + placesHTML() +
     '<div class="section-title">Touren (antippen für Details)</div>' +
     '<div class="chart-card">' +
       (allTours.length === 0 ? '<div class="empty">Noch keine Touren gespeichert.</div>' :
       '<table><tr><th>Wer</th><th>Wann</th><th>Dauer</th><th>Flyer</th></tr>' +
-        allTours.slice(0,15).map(x=>'<tr class="rowbtn" onclick="window.__tourDetail(\''+x.o+'\',\''+x.t.id+'\')"><td style="color:'+ucolor(x.o)+';font-weight:700">'+esc(uname(x.o))+'</td><td>'+fmtTime(x.t.startTs||x.t.ts)+'</td><td>'+fmtDur(x.t.startTs?(x.t.ts-x.t.startTs):null)+'</td><td style="text-align:right;font-weight:700">'+x.t.flyers+'</td></tr>').join("") +
+        allTours.slice(0,15).map(x=>'<tr class="rowbtn" onclick="window.__tourDetail(\''+x.o+'\',\''+x.t.id+'\')"><td style="color:'+ucolor(x.o)+';font-weight:700">'+esc(uname(x.o))+'</td><td>'+fmtTime(x.t.startTs||x.t.ts)+'</td><td>'+fmtDur(x.t.startTs?(x.t.ts-x.t.startTs):null)+(x.t.auto?' <span title="automatisch erkannt" style="color:var(--muted)">⚙</span>':'')+'</td><td style="text-align:right;font-weight:700">'+x.t.flyers+'</td></tr>').join("") +
       "</table>") +
     '</div>' +
     '<div class="section-title">Export</div>' +
@@ -1592,6 +1912,14 @@ function renderStats(){
       '<button class="smallbtn" id="expHand">Abgegeben (CSV)</button>' +
       '<button class="smallbtn" id="expGpx">Pins (GPX)</button>' +
     '</div>' +
+    '<div class="section-title">Touren-Automatik</div>' +
+    '<div class="chart-card">' +
+      '<label style="display:flex;gap:9px;align-items:center;font-size:13.5px;margin-bottom:10px">'+
+        '<input type="checkbox" id="autoTourCb"'+(autoTours?" checked":"")+' style="width:18px;height:18px">'+
+        'Touren automatisch starten und beenden</label>' +
+      '<div class="empty" style="padding:0 0 10px">Ab '+AUTO_MIN_PINS+' Pins an verschiedenen Orten startet eine Tour von selbst; nach '+autoGapMin+' Minuten ohne neuen Pin endet sie automatisch beim letzten Pin.</div>' +
+      '<button class="smallbtn" id="rebuildBtn" style="width:100%">🔎 Touren aus vorhandenen Pins erkennen</button>' +
+    '</div>' +
     '<div class="section-title">Einrichtung</div>' +
     '<div class="export-row">' +
       '<button class="smallbtn" id="copyLink">Einladungs-Link kopieren</button>' +
@@ -1599,6 +1927,13 @@ function renderStats(){
     '</div>' +
     '<button class="linkbtn" id="switchWho">Person wechseln (aktuell: '+(me?esc(uname(me)):"–")+')</button>';
 
+  if($("loadPlacesBtn")) $("loadPlacesBtn").onclick = fetchPlacesOnly;
+  if($("rebuildBtn")) $("rebuildBtn").onclick = openRebuild;
+  if($("autoTourCb")) $("autoTourCb").onchange = ()=>{
+    autoTours = $("autoTourCb").checked;
+    ls("flyer-auto", autoTours ? "1" : "0");
+    toast(autoTours ? "Touren-Automatik an" : "Touren-Automatik aus");
+  };
   if($("funFormat")) $("funFormat").onchange = ()=>{ funFormat = $("funFormat").value; saveFunOpt(); renderStats(); };
   if($("funPaper"))  $("funPaper").onchange  = ()=>{ funPaper  = $("funPaper").value;  saveFunOpt(); renderStats(); };
   for(const b of v.querySelectorAll(".rng button"))
@@ -1806,10 +2141,14 @@ function renderStreets(){
     const open = it.cov < ST_PART;
     if(stFilter === "open" && done) continue;
     if(stFilter === "done" && !done) continue;
-    const col = done ? "#1E8A5A" : (open ? "#C0392B" : "#C8772A");
-    L.polyline(it.w.pts, { color:col, weight:6, opacity:0.55, lineCap:"round", lineJoin:"round" })
-      .bindPopup('<b>'+esc(it.w.n)+'</b><br>'+Math.round(it.cov*100)+' % abgedeckt<br>'+esc(locName))
-      .addTo(streetLayer);
+    const col = done ? "#12A366" : (open ? "#FF2D2D" : "#FF9500");
+    const pop = '<b>'+esc(it.w.n)+'</b><br>'+Math.round(it.cov*100)+' % abgedeckt<br>'+esc(locName);
+    // Weiße Kontur darunter, damit die Farbe auch auf dem Luftbild knallt
+    L.polyline(it.w.pts, { pane:"streetPane", color:"#FFFFFF", weight:11, opacity:0.75,
+      lineCap:"round", lineJoin:"round", interactive:false }).addTo(streetLayer);
+    L.polyline(it.w.pts, { pane:"streetPane", color:col, weight:7, opacity:0.95,
+      lineCap:"round", lineJoin:"round", dashArray: done ? null : (open ? null : "10 7") })
+      .bindPopup(pop).addTo(streetLayer);
   }
 }
 function renderStLocList(){
@@ -1878,9 +2217,12 @@ async function stFetchStreets(){
     streets = { ts:Date.now(), ways:Array.from(merged.values()), places:Array.from(mp.values()) };
     stDirty = true;
     stSave();
+    if(stFilter === "off"){ stFilter = "open"; stSaveOpt(); }   // sonst sieht man nichts
+    if(pinMode === 0){ pinMode = 1; updatePinBtn(); }           // Pins blass, Straßen im Vordergrund
+    $("stFilterSel").value = stFilter;
     renderStLocList();
-    renderStreets();
-    toast(fresh.length+" Straßen geladen ✓");
+    renderPins();
+    toast(fresh.length+" Straßen geladen ✓ – offene Straßen sind rot");
   }catch(err){
     $("stInfo").textContent = "Laden fehlgeschlagen – der OpenStreetMap-Server ist manchmal überlastet. Bitte später erneut versuchen.";
   }
@@ -1917,6 +2259,8 @@ $("btnTour").onclick  = toggleTour;
 $("tourCancel").onclick = ()=>$("tourOverlay").classList.add("hidden");
 $("tourSave").onclick = saveTour;
 $("detailClose").onclick = ()=>$("detailOverlay").classList.add("hidden");
+$("rbCancel").onclick = ()=>$("rebuildOverlay").classList.add("hidden");
+$("rbSave").onclick = runRebuild;
 $("btnRefresh").onclick = ()=>refreshOthers(true);
 $("btnFollow").onclick = ()=>setFollow(!follow);
 $("btnHeat").onclick = ()=>{
@@ -1925,6 +2269,7 @@ $("btnHeat").onclick = ()=>{
   renderPins();
   if(heatOn && typeof L.heatLayer !== "function") toast("Heatmap konnte nicht geladen werden (offline?)");
 };
+$("btnPins").onclick = cyclePins;
 $("btnLayer").onclick = toggleBase;
 $("btnStreets").onclick = openStreets;
 $("stCloseBtn").onclick = ()=>$("streetsOverlay").classList.add("hidden");
@@ -1983,6 +2328,7 @@ async function startApp(){
   }
   else { renderWho(); $("whoOverlay").classList.remove("hidden"); }
   migrate();
+  autoEndCheck();      // Tour, die über Nacht offen blieb, sauber abschließen
   updateCounters();
 }
 $("setupSave").onclick = async ()=>{
@@ -2006,9 +2352,15 @@ $("setupSave").onclick = async ()=>{
 };
 (function boot(){
   loadFunOpt();
+  if(ls("flyer-auto") === "0") autoTours = false;
+  const gp = parseInt(ls("flyer-gap") || "", 10);
+  if(gp >= 15 && gp <= 480) autoGapMin = gp;
+  const pm = ls("flyer-pinmode");
+  if(pm === "1" || pm === "2") pinMode = parseInt(pm,10);
   const r = ls("flyer-range");
   if(r !== null && r !== undefined && r !== "") statRange = parseInt(r,10) || 0;
   initMap();
+  updatePinBtn();
   stLoadLS();
   startGPS();
   let fromLink = null;
