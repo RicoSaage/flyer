@@ -1,5 +1,5 @@
-<!DOCTYPE html>.  
-<html lang="de"> 
+<!DOCTYPE html>
+<html lang="de">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -168,6 +168,26 @@
   }
   .bar{height:7px;border-radius:4px;background:var(--line);overflow:hidden;min-width:52px}
   .bar i{display:block;height:100%;border-radius:4px}
+  #autoBar{
+    display:none;align-items:center;gap:9px;background:var(--ink);color:#fff;
+    border-radius:12px;padding:8px 10px;margin-bottom:8px;
+  }
+  #autoBar .txt{flex:1;min-width:0;font-size:12.5px;font-weight:700;line-height:1.25}
+  #autoBar .txt small{display:block;font-weight:600;opacity:.7;font-size:10.5px}
+  #autoBar button{
+    border:0;border-radius:9px;width:36px;height:34px;font-size:19px;font-weight:800;
+    font-family:inherit;background:rgba(255,255,255,.16);color:#fff;cursor:pointer;
+  }
+  #autoBar button:active{background:rgba(255,255,255,.3)}
+  #autoBar .cnt{min-width:26px;text-align:center;font-size:17px;font-weight:800}
+  .place-label{background:none;border:0;pointer-events:none}
+  .place-label .pl{
+    transform:translate(-50%,-50%);white-space:nowrap;text-align:center;line-height:1.15;
+    font-size:12.5px;font-weight:800;color:rgba(23,33,31,.6);
+    text-shadow:0 0 3px #fff,0 0 6px #fff,0 0 9px #fff;
+  }
+  .place-label .pl small{display:block;font-size:10px;font-weight:700;opacity:.8}
+  .place-label .pl.done{color:rgba(18,120,80,.72)}
   .cluster-label{background:none;border:0;pointer-events:none}
   .cluster-label span{
     display:block;text-align:center;font-size:11px;font-weight:800;color:#fff;line-height:14px;
@@ -211,6 +231,13 @@
       </div>
     </div>
     <div class="actionbar">
+      <div id="autoBar">
+        <div class="txt" id="autoTxt"></div>
+        <button id="autoMinus" type="button">&minus;</button>
+        <span class="cnt" id="autoCnt">1</span>
+        <button id="autoPlus" type="button">+</button>
+        <button id="autoOk" type="button" title="Fertig">✓</button>
+      </div>
       <div class="counter-strip">
         <span>Heute: <b id="cntToday">0</b> Flyer</span>
         <span id="tourStrip">Keine aktive Tour</span>
@@ -309,8 +336,18 @@
     <label style="display:flex;gap:9px;align-items:center;font-size:13.5px;margin-bottom:7px"><input type="checkbox" id="stTracksCb" checked style="width:18px;height:18px"> Laufwege (GPS-Tracks) zählen mit</label>
     <label style="display:flex;gap:9px;align-items:center;font-size:13.5px;margin-bottom:13px"><input type="checkbox" id="stSkipCb" checked style="width:18px;height:18px"> „Übersprungen“-Pins zählen mit</label>
     <div class="empty" style="padding:0 0 10px">Tipp: Mit dem 📍-Knopf auf der Karte lassen sich die Pins blass schalten oder ausblenden – dann sind die Straßen gut sichtbar. Rot = offen, orange gestrichelt = teilweise, grün = erledigt.</div>
+    <label style="display:flex;gap:9px;align-items:center;font-size:13.5px;margin-bottom:13px"><input type="checkbox" id="plLabelsCb" checked style="width:18px;height:18px"> Ortschaften auf der Karte beschriften</label>
     <div id="stInfo" style="font-size:13px;color:var(--muted);margin-bottom:10px"></div>
     <div id="stLocList"></div>
+    <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
+      <label style="display:flex;gap:9px;align-items:center;font-size:13.5px;margin-bottom:8px"><input type="checkbox" id="bldOnCb" style="width:18px;height:18px"> Haushalte schätzen (Zusatzoption)</label>
+      <div id="bldBox" style="display:none">
+        <div id="bldInfo" style="font-size:12.5px;color:var(--muted);margin-bottom:8px"></div>
+        <button class="smallbtn" id="bldLoadBtn" style="width:100%;margin-bottom:10px">Gebäude laden</button>
+        <label style="display:flex;gap:9px;align-items:center;font-size:13.5px"><input type="checkbox" id="autoHouseCb" style="width:18px;height:18px"> Haus-Automatik: Pin setzen, wenn ich an einem Haus vorbeikomme</label>
+        <div class="empty" style="padding:6px 0 0">Wirkt nur während einer laufenden Tour. Nach jedem Auto-Pin erscheint unten eine Leiste, in der du die Flyer-Anzahl noch erhöhen kannst.</div>
+      </div>
+    </div>
     <div class="modal-btns">
       <button class="btn-secondary" id="stLoadBtn">Straßen laden</button>
       <button class="btn-primary" id="stCloseBtn">Schließen</button>
@@ -348,6 +385,18 @@
     <div class="modal-btns">
       <button class="btn-secondary" id="tourCancel">Weiter sammeln</button>
       <button class="btn-primary" id="tourSave">Tour speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sicherung einspielen -->
+<div class="overlay hidden" id="restoreOverlay">
+  <div class="modal">
+    <h2>Sicherung einspielen</h2>
+    <div id="rsBody"></div>
+    <div class="modal-btns">
+      <button class="btn-secondary" id="rsCancel">Abbrechen</button>
+      <button class="btn-primary" id="rsRun">Einspielen</button>
     </div>
   </div>
 </div>
@@ -420,7 +469,8 @@ let cooldownUntil = 0, cooldownIv = null;
 let backfill = false, heatOn = false;
 let follow = true, progMove = false, firstFix = true;
 let myPos = null, myAcc = null;
-let map, pinLayer, trackLayer, streetLayer, heatLayer = null, meMarker = null, accCircle = null;
+let map, pinLayer, trackLayer, streetLayer, placeLayer, heatLayer = null, meMarker = null, accCircle = null;
+let placeLabels = true;
 let baseOSM = null, baseSat = null, satLabels = null, satOn = false;
 let pinMode = 0;              // 0 = normal, 1 = blass, 2 = aus
 const CLUSTER_ZOOM = 16;      // darunter werden Pins zusammengefasst
@@ -601,6 +651,10 @@ async function dbSet(key, val){
   const r = await fetch(dbUrl+"/"+key+".json", {method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(val)});
   if(!r.ok) throw new Error("HTTP "+r.status);
 }
+async function dbPatch(key, obj){          // schreibt/löscht mehrere Kinder in einem Request
+  const r = await fetch(dbUrl+"/"+key+".json", {method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify(obj)});
+  if(!r.ok) throw new Error("HTTP "+r.status);
+}
 async function dbDelete(key){
   const r = await fetch(dbUrl+"/"+key+".json", {method:"DELETE"});
   if(!r.ok) throw new Error("HTTP "+r.status);
@@ -640,15 +694,31 @@ function updateSyncState(){
 }
 
 /* --- Ganze Listen (Pins/Touren/Tracks) der eigenen Person --- */
+let pinSnapshot = null;   // id -> JSON des zuletzt gesendeten Pins
+function snapshotPins(arr){
+  const m = new Map();
+  for(const p of (arr||[])) if(p && p.id) m.set(p.id, JSON.stringify(p));
+  return m;
+}
+async function persistPins(){
+  const arr = data.pins[me] || [];
+  const cur = snapshotPins(arr);
+  const patch = {};
+  cur.forEach((js, id)=>{ if(!pinSnapshot || pinSnapshot.get(id) !== js) patch[id] = JSON.parse(js); });
+  if(pinSnapshot) pinSnapshot.forEach((js, id)=>{ if(!cur.has(id)) patch[id] = null; });   // null = löschen
+  if(Object.keys(patch).length === 0){ pinSnapshot = cur; return; }
+  await dbPatch("pins/"+me, patch);
+  pinSnapshot = cur;
+}
 async function persist(kind){
   if(!me || !dbUrl){ dirty[kind]=true; return; }
   if(saving){ dirty[kind]=true; return; }
   saving = true;
   setSync("busy","Speichert …");
   dirty[kind] = false;
-  const payload = JSON.parse(JSON.stringify(data[kind][me]));
   try{
-    await dbSet(kind+"-"+me, payload);
+    if(kind === "pins") await persistPins();
+    else await dbSet(kind+"-"+me, JSON.parse(JSON.stringify(data[kind][me])));
     updateSyncState();
   }catch(e){
     dirty[kind] = true;
@@ -662,14 +732,48 @@ async function persist(kind){
 function markDirtyAndPersist(kind){ dirty[kind]=true; persist(kind); }
 
 /* --- Laden --- */
+async function loadPins(id, prev){
+  let obj = null, legacy = null, ok = false;
+  try{ obj = await dbGet("pins/"+id); ok = true; }catch(e){}
+  try{ legacy = await dbGet("pins-"+id); ok = true; }catch(e){}
+  if(!ok) return prev || [];                       // Netzfehler: lokalen Stand behalten
+  const map = new Map();
+  if(Array.isArray(legacy)) for(const p of legacy) if(p && p.id) map.set(p.id, p);
+  else if(legacy && typeof legacy === "object") for(const k in legacy){ const p = legacy[k]; if(p && p.id) map.set(p.id, p); }
+  if(obj && typeof obj === "object") for(const k in obj){
+    const p = obj[k];
+    if(!p) continue;
+    if(!p.id) p.id = k;
+    map.set(p.id, p);                              // neuer Speicherort gewinnt
+  }
+  return Array.from(map.values()).sort((a,b)=>(a.ts||0)-(b.ts||0));
+}
+async function migratePinStore(){                  // einmalig: alte Liste in Einzel-Pins überführen
+  if(!me || !dbUrl) return;
+  let legacy = null;
+  try{ legacy = await dbGet("pins-"+me); }catch(e){ return; }
+  const arr = Array.isArray(legacy) ? legacy.filter(p=>p && p.id) : [];
+  if(!arr.length) return;
+  const patch = {};
+  for(const p of arr) patch[p.id] = p;
+  try{
+    await dbPatch("pins/"+me, patch);
+    await dbSet("backup-pins-"+me, arr);            // Sicherheitskopie behalten
+    await dbDelete("pins-"+me);
+    pinSnapshot = snapshotPins(data.pins[me]);
+  }catch(e){ /* beim nächsten Start erneut versuchen */ }
+}
 async function loadUserData(id){
   const res = await Promise.all([
-    loadArr("pins-"+id, data.pins[id]||[]),
+    loadPins(id, data.pins[id]),
     loadArr("tours-"+id, data.tours[id]||[]),
     loadObj("tracks-"+id, data.tracks[id]||{})
   ]);
   const own = (id === me);
-  if(!own || !dirty.pins)   data.pins[id]   = res[0];   // eigene ungesendete Pins behalten Vorrang
+  if(!own || !dirty.pins){
+    data.pins[id] = res[0];                         // eigene ungesendete Pins behalten Vorrang
+    if(own) pinSnapshot = snapshotPins(res[0]);
+  }
   if(!own || !dirty.tours)  data.tours[id]  = res[1];
   if(!own || !dirty.tracks) data.tracks[id] = res[2];
 }
@@ -883,6 +987,8 @@ function initMap(){
   // Eigene Ebenen, damit der Standort immer über den Pins liegt
   map.createPane("accPane").style.zIndex = 350;   // über den Kacheln, aber unter den Pins
   map.createPane("streetPane").style.zIndex = 620; // Straßen-Abdeckung über den Pins
+  map.createPane("placePane").style.zIndex = 630;  // Ortschafts-Etiketten
+  map.getPane("placePane").style.pointerEvents = "none";
   map.createPane("mePane").style.zIndex = 655;
   map.getPane("mePane").style.pointerEvents = "none";
   map.getPane("accPane").style.pointerEvents = "none";
@@ -898,6 +1004,7 @@ function initMap(){
   satOn = ls("flyer-sat") === "1";
   applyBase();
   streetLayer = L.layerGroup().addTo(map);
+  placeLayer = L.layerGroup().addTo(map);
   map.on("zoomend", ()=>renderPins());
   trackLayer = L.layerGroup().addTo(map);
   pinLayer = L.layerGroup().addTo(map);
@@ -1065,6 +1172,7 @@ function renderPins(){
   }
   stDirty = true;
   renderStreets();
+  renderPlaceLabels();
 }
 window.__delPin = function(id){
   const arr = data.pins[me] || [];
@@ -1141,6 +1249,8 @@ function onPos(ev){
     setTimeout(()=>{ progMove = false; }, 350);
   }
   recordTrack();
+  autoHouseCheck();
+  if(lastAuto && Date.now() > lastAutoUntil) hideAutoBar();
   updateButtons();
 }
 function recordTrack(){
@@ -1247,6 +1357,7 @@ function statsHTML(s, startTs, endTs){
     '<div class="kv"><span>Flyer (laut Pins)</span><b>'+s.fly+'</b></div>'+
     '<div class="kv"><span>Übersprungen</span><b>'+s.skip+'</b></div>'+
     '<div class="kv"><span>Strecke (ca.)</span><b>'+fmtDist(s.dist)+'</b></div>'+
+    '<div class="kv"><span>Schritte (ca.)</span><b>👟 '+nfmt(stepsOf(s.dist))+'</b></div>'+
     '<div class="kv"><span>Pins pro Minute</span><b>'+(s.pinsPerMin!=null ? s.pinsPerMin.toFixed(1).replace(".",",") : "–")+'</b></div>'+
     '<div class="kv"><span>Flyer pro Minute</span><b>'+(s.flyPerMin!=null ? s.flyPerMin.toFixed(1).replace(".",",") : "–")+'</b></div>';
 }
@@ -1269,6 +1380,7 @@ function toggleTour(){
   }
 }
 function finishTour(tour, endTs, flyers, auto){
+  hideAutoBar();
   const s = calcTour(me, tour.id, tour.startTs, endTs);
   data.tours[me].push({
     id:tour.id, startTs:tour.startTs, ts:endTs,
@@ -1408,7 +1520,8 @@ function updateTourUI(){
 function tickTourStrip(){
   if(!activeTour){ $("tourStrip").textContent = "Keine aktive Tour"; return; }
   const s = me ? calcTour(me, activeTour.id, activeTour.startTs, Date.now()) : {fly:0};
-  $("tourStrip").innerHTML = (activeTour.auto ? 'Auto-Tour: ' : 'Tour läuft: ')+'<b>'+s.fly+'</b> Flyer · '+fmtDur(Date.now()-activeTour.startTs);
+  $("tourStrip").innerHTML = (activeTour.auto ? 'Auto-Tour: ' : 'Tour läuft: ')+'<b>'+s.fly+'</b> Flyer · '+
+    fmtDur(Date.now()-activeTour.startTs)+' · 👟 <b>'+nfmt(stepsOf(s.dist))+'</b>';
 }
 setInterval(tickTourStrip, 5000);
 
@@ -1608,6 +1721,12 @@ const WEIGHTS = [["ein Sack Zement",25],["ein erwachsener Mensch",75],["ein Klav
 const FOODS = [["Bananen",90],["Schokoriegel",230],["Portionen Pommes",400],["Döner",700],["Pizzen",850]];
 
 let funFormat = "a5", funPaper = "p135";
+let stepLen = 0.72;                      // Meter pro Schritt
+function stepsOf(m){ return Math.round((m||0) / stepLen); }
+function loadStepOpt(){
+  const v = parseFloat(ls("flyer-steplen"));
+  if(v >= 0.4 && v <= 1.3) stepLen = v;
+}
 function loadFunOpt(){
   try{
     const o = JSON.parse(ls("flyer-fun") || "null");
@@ -1632,20 +1751,24 @@ function cmpLine(value, list, unitFmt){
   const r = c.ratio;
   return (r >= 1.6 ? nfmt(r,1)+"× " : "") + c.name + (r >= 1.6 ? "" : "");
 }
+function ownerDistanceM(o){
+  let m = 0;
+  const trs = data.tracks[o] || {};
+  const withTrack = new Set();
+  for(const tid in trs){
+    const a = trs[tid];
+    if(Array.isArray(a) && a.length > 1){
+      for(let i=1;i<a.length;i++) m += distM({lat:a[i-1][0],lng:a[i-1][1]}, {lat:a[i][0],lng:a[i][1]});
+      withTrack.add(tid);
+    }
+  }
+  // Touren ohne GPS-Aufzeichnung: gespeicherte Streckenschätzung nutzen
+  for(const t of (data.tours[o]||[])) if(!withTrack.has(t.id) && t.dist) m += t.dist;
+  return m;
+}
 function totalDistanceM(){
   let m = 0;
-  for(const o of dataOwners()){
-    const trs = data.tracks[o] || {};
-    const withTrack = new Set();
-    for(const tid in trs){
-      const a = trs[tid];
-      if(Array.isArray(a) && a.length > 1){
-        for(let i=1;i<a.length;i++) m += distM({lat:a[i-1][0],lng:a[i-1][1]}, {lat:a[i][0],lng:a[i][1]});
-        withTrack.add(tid);
-      }
-    }
-    for(const t of (data.tours[o]||[])) if(!withTrack.has(t.id) && t.dist) m += t.dist;
-  }
+  for(const o of dataOwners()) m += ownerDistanceM(o);
   return m;
 }
 function totalDurationMs(){
@@ -1684,7 +1807,7 @@ function cityLine(distM_total){
 function funFactsHTML(flyers){
   const F = FORMATS[funFormat], P = PAPERS[funPaper];
   const dist = totalDistanceM();
-  const steps = dist / 0.72;
+  const steps = dist / stepLen;
   const kcal = dist/1000 * 50;
   const tower = flyers * P.mm / 1000;
   const area = flyers * F.m2;
@@ -1719,8 +1842,11 @@ function funFactsHTML(flyers){
         Object.keys(PAPERS).map(k=>'<option value="'+k+'"'+(k===funPaper?' selected':'')+'>'+PAPERS[k].n+'</option>').join("") +
       '</select></div>' +
     '</div>' +
+    '<div class="field" style="margin-bottom:6px"><label for="funStep">Schrittlänge</label><select id="funStep">' +
+      [0.60,0.65,0.70,0.72,0.75,0.80,0.85].map(v=>'<option value="'+v+'"'+(Math.abs(v-stepLen)<0.001?' selected':'')+'>'+v.toFixed(2).replace(".",",")+' m'+(v===0.72?' (Standard)':'')+'</option>').join("") +
+    '</select></div>' +
     rows.map(r=>'<div class="kv"><span>'+r[0]+'</span><b style="text-align:right">'+r[1]+'</b></div>').join("") +
-    '<div class="empty" style="padding-top:10px">Schätzwerte: 0,72 m Schrittlänge, 50 kcal pro km (ca. 70 kg). Strecke aus euren GPS-Aufzeichnungen – ohne aufgezeichnete Tour bleibt sie klein.</div>' +
+    '<div class="empty" style="padding-top:10px">Schätzwerte: '+stepLen.toFixed(2).replace(".",",")+' m Schrittlänge, 50 kcal pro km (ca. 70 kg). Strecke aus euren GPS-Aufzeichnungen – ohne aufgezeichnete Tour bleibt sie klein.</div>' +
   '</div>';
 }
 
@@ -1767,6 +1893,8 @@ function placesHTML(){
   const rows = placeStats();
   if(!rows.length) return '<div class="chart-card"><div class="empty">Noch keine Pins gesetzt.</div></div>';
   const hasCov = rows.some(r=>r.cov != null);
+  const hs = houseStats();
+  const hasHH = Object.keys(hs).length > 0;
   const body = rows.map(r=>{
     const pct = r.cov != null ? Math.round(r.cov*100) : null;
     const col = pct == null ? "var(--muted)" : (pct >= 80 ? "var(--ok)" : pct >= 30 ? "var(--warn)" : "var(--bad)");
@@ -1776,9 +1904,12 @@ function placesHTML(){
           '<div class="bar" style="width:56px"><i style="width:'+pct+'%;background:'+col+'"></i></div>'+
           '<b style="color:'+col+';min-width:34px;display:inline-block;text-align:right">'+pct+' %</b></div>';
     const who = Object.keys(r.by).map(o=>'<span style="color:'+ucolor(o)+';font-weight:700">'+esc(uname(o))+' '+r.by[o]+'</span>').join(" · ");
+    const h = hs[r.name];
+    const hhTxt = h ? ' · 🏠 '+nfmt(h.hhDone)+'/'+nfmt(h.hh)+' Haushalte ('+Math.round(h.hh?h.hhDone/h.hh*100:0)+' %)' : '';
     return '<tr><td><div style="font-weight:700">'+esc(r.name)+'</div>'+
       '<div style="font-size:11px;color:var(--muted)">'+(who || "–")+
       (r.m ? ' · '+nfmt(r.mDone/1000,1)+'/'+nfmt(r.m/1000,1)+' km' : '')+
+      hhTxt +
       (r.skip ? ' · '+r.skip+' übersprungen' : '')+'</div></td>'+
       '<td style="text-align:right">'+r.pins+'</td>'+
       '<td style="text-align:right;font-weight:700">'+r.fly+'</td>'+
@@ -1786,6 +1917,7 @@ function placesHTML(){
   }).join("");
   return '<div class="chart-card">'+
     '<table><tr><th>Ortschaft</th><th>Pins</th><th>Flyer</th><th>Abdeckung</th></tr>'+body+'</table>'+
+    (hasHH ? '<div class="empty">🏠 Haushalte sind eine Schätzung aus den OpenStreetMap-Adressen (Stockwerke × 2 bei Mehrfamilienhäusern) – nicht zum Nachrechnen geeignet.</div>' : '') +
     (hasCov
       ? '<div class="empty">Abdeckung = Anteil der Straßenlänge, an der ihr wart (Schätzung, Straßenseiten werden nicht unterschieden).</div>'
       : '<div class="empty">Für die Abdeckung in Prozent im Karten-Tab über 🛣 einmal die Straßen laden. <button class="smallbtn" id="loadPlacesBtn" style="margin-top:8px">Nur Ortsnamen laden</button></div>')+
@@ -1822,6 +1954,28 @@ async function fetchPlacesOnly(){
     toast("Laden fehlgeschlagen – bitte später erneut versuchen");
     if(btn){ btn.disabled = false; btn.textContent = "Nur Ortsnamen laden"; }
   }
+}
+
+function stepsHTML(agg){
+  const rows = agg.owners.map(o=>({ o:o, m:ownerDistanceM(o), tours:(data.tours[o]||[]).length }))
+    .filter(x=>x.m > 0).sort((a,b)=>b.m-a.m);
+  const totalM = rows.reduce((x,r)=>x+r.m, 0);
+  const perTour = [];
+  for(const o of agg.owners) for(const t of (data.tours[o]||[])) if(t.dist) perTour.push({o:o, t:t});
+  perTour.sort((a,b)=>b.t.dist-a.t.dist);
+  const best = perTour[0];
+  return '<div class="chart-card">'+
+    '<div class="kv"><span>Schritte gesamt</span><b>👟 '+nfmt(stepsOf(totalM))+'</b></div>'+
+    '<div class="kv"><span>Strecke gesamt</span><b>'+fmtDist(totalM)+'</b></div>'+
+    (best ? '<div class="kv"><span>Längste Tour</span><b>'+nfmt(stepsOf(best.t.dist))+' Schritte<br>'+
+      '<span style="font-weight:600;font-size:11.5px;color:'+ucolor(best.o)+'">'+esc(uname(best.o))+' · '+fmtDayFull(dayKey(best.t.startTs||best.t.ts))+'</span></b></div>' : "")+
+    '<table style="margin-top:8px"><tr><th>Person</th><th>Strecke</th><th>Schritte</th></tr>'+
+      rows.map(r=>'<tr><td style="color:'+ucolor(r.o)+';font-weight:700">'+esc(uname(r.o))+'</td>'+
+        '<td style="text-align:right">'+fmtDist(r.m)+'</td>'+
+        '<td style="text-align:right;font-weight:700">'+nfmt(stepsOf(r.m))+'</td></tr>').join("")+
+    '</table>'+
+    '<div class="empty">Aus der GPS-Strecke bei '+stepLen.toFixed(2).replace(".",",")+' m pro Schritt. Die Schrittlänge lässt sich unter „Spaß-Fakten“ anpassen.</div>'+
+  '</div>';
 }
 
 function renderStats(){
@@ -1869,6 +2023,11 @@ function renderStats(){
       '</div>';
   }
   const totalFlyers = agg.owners.reduce((x,o)=>x+agg.tot[o].fly, 0) + hFly;
+  const distTotal = totalDistanceM();
+  const stepParts = agg.owners.map(o=>({o:o, m:ownerDistanceM(o)})).filter(x=>x.m > 0);
+  const stepSub = stepParts.length
+    ? stepParts.map(x=>'<span style="color:'+ucolor(x.o)+';font-weight:700">'+esc(uname(x.o))+' '+nfmt(stepsOf(x.m))+'</span>').join(" · ")
+    : "";
   const allTours = [];
   for(const o of agg.owners) for(const t of (data.tours[o]||[])) allTours.push({t:t, o:o});
   allTours.sort((a,b)=>(b.t.startTs||b.t.ts)-(a.t.startTs||a.t.ts));
@@ -1889,6 +2048,7 @@ function renderStats(){
       '<div class="card"><div class="label">Übersprungen</div><div class="big">'+skipTotal+'</div><div class="sub">'+perUserSub(t=>t.skip)+'</div></div>' +
       '<div class="card"><div class="label">Persönlich abgegeben</div><div class="big">'+hFly+'</div><div class="sub">'+
         (Object.keys(hByUser).length ? Object.keys(hByUser).map(id=>esc(uname(id))+" "+hByUser[id]).join(" · ") : hList.length+(hList.length===1?' Eintrag':' Einträge'))+'</div></div>' +
+      '<div class="card"><div class="label">Schritte gesamt</div><div class="big">👟 '+nfmt(stepsOf(distTotal))+'</div><div class="sub">'+(stepSub || fmtDist(distTotal))+'</div></div>' +
       '<div class="card"><div class="label">Bestand übrig</div><div class="big"'+(left!=null && left<0 ? ' style="color:var(--bad)"' : '')+'>'+(left!=null ? left : "–")+'</div><div class="sub">'+(ordered>0 ? 'von '+ordered+' bestellt · '+uf.used+' verteilt' : 'Bestellung im Tab „Bestand“ eintragen')+'</div></div>' +
     '</div>' +
     (me && activeTour ? '<div class="empty">Pins deiner laufenden Tour zählen bereits mit. Beim „Tour beenden“ kannst du die Zahl noch korrigieren.</div>' : "") +
@@ -1897,6 +2057,7 @@ function renderStats(){
     (allKeys.length ? '<div class="section-title">Gesamt im Zeitverlauf</div><div class="chart-card">'+lineChartSVG(allKeys, winKeys, agg.days, agg.owners)+'</div>' : "") +
     kpiBlock +
     (totalFlyers > 0 ? '<div class="section-title">Spaß-Fakten</div>' + funFactsHTML(totalFlyers) : "") +
+    (distTotal > 0 ? '<div class="section-title">Schritte</div>' + stepsHTML(agg) : "") +
     '<div class="section-title">Ortschaften</div>' + placesHTML() +
     '<div class="section-title">Touren (antippen für Details)</div>' +
     '<div class="chart-card">' +
@@ -1920,6 +2081,14 @@ function renderStats(){
       '<div class="empty" style="padding:0 0 10px">Ab '+AUTO_MIN_PINS+' Pins an verschiedenen Orten startet eine Tour von selbst; nach '+autoGapMin+' Minuten ohne neuen Pin endet sie automatisch beim letzten Pin.</div>' +
       '<button class="smallbtn" id="rebuildBtn" style="width:100%">🔎 Touren aus vorhandenen Pins erkennen</button>' +
     '</div>' +
+    '<div class="section-title">Sicherung</div>' +
+    '<div class="chart-card">' +
+      '<div class="export-row">' +
+        '<button class="smallbtn" id="bkExport">💾 Alles sichern (JSON)</button>' +
+        '<button class="smallbtn" id="bkImport">📂 Sicherung einspielen</button>' +
+      '</div>' +
+      '<div class="empty" style="padding-bottom:0">Enthält Personen, Pins, Touren, Laufwege, Abgaben und Bestellungen. Ab und zu sichern schadet nicht – die Datenbank hat keinen Papierkorb.</div>' +
+    '</div>' +
     '<div class="section-title">Einrichtung</div>' +
     '<div class="export-row">' +
       '<button class="smallbtn" id="copyLink">Einladungs-Link kopieren</button>' +
@@ -1929,6 +2098,8 @@ function renderStats(){
 
   if($("loadPlacesBtn")) $("loadPlacesBtn").onclick = fetchPlacesOnly;
   if($("rebuildBtn")) $("rebuildBtn").onclick = openRebuild;
+  if($("bkExport")) $("bkExport").onclick = exportBackup;
+  if($("bkImport")) $("bkImport").onclick = pickBackupFile;
   if($("autoTourCb")) $("autoTourCb").onchange = ()=>{
     autoTours = $("autoTourCb").checked;
     ls("flyer-auto", autoTours ? "1" : "0");
@@ -1936,6 +2107,7 @@ function renderStats(){
   };
   if($("funFormat")) $("funFormat").onchange = ()=>{ funFormat = $("funFormat").value; saveFunOpt(); renderStats(); };
   if($("funPaper"))  $("funPaper").onchange  = ()=>{ funPaper  = $("funPaper").value;  saveFunOpt(); renderStats(); };
+  if($("funStep"))   $("funStep").onchange   = ()=>{ stepLen = parseFloat($("funStep").value) || 0.72; ls("flyer-steplen", String(stepLen)); renderStats(); };
   for(const b of v.querySelectorAll(".rng button"))
     b.onclick = ()=>{ statRange = parseInt(b.dataset.r,10); ls("flyer-range", String(statRange)); renderStats(); };
   $("expPins").onclick = exportPinsCSV;
@@ -1970,9 +2142,9 @@ function exportPinsCSV(){
   download("flyer-pins.csv", s, "text/csv");
 }
 function exportToursCSV(){
-  let s = "person;start;ende;dauer_min;pins;flyer;strecke_m;tour_id\n";
+  let s = "person;start;ende;dauer_min;pins;flyer;strecke_m;schritte;tour_id\n";
   for(const o of dataOwners()) for(const t of (data.tours[o]||[]))
-    s += csvName(o)+";"+(t.startTs?new Date(t.startTs).toISOString():"")+";"+new Date(t.ts).toISOString()+";"+(t.startTs?Math.round((t.ts-t.startTs)/60000):"")+";"+t.pins+";"+t.flyers+";"+(t.dist||"")+";"+t.id+"\n";
+    s += csvName(o)+";"+(t.startTs?new Date(t.startTs).toISOString():"")+";"+new Date(t.ts).toISOString()+";"+(t.startTs?Math.round((t.ts-t.startTs)/60000):"")+";"+t.pins+";"+t.flyers+";"+(t.dist||"")+";"+(t.dist?stepsOf(t.dist):"")+";"+t.id+"\n";
   download("flyer-touren.csv", s, "text/csv");
 }
 function exportHandoutsCSV(){
@@ -1990,6 +2162,152 @@ function exportGPX(){
   s += "</gpx>";
   download("flyer-pins.gpx", s, "application/gpx+xml");
 }
+/* ---------- Haus-Automatik ---------- */
+function showAutoBar(pin, b){
+  lastAuto = pin;
+  lastAutoUntil = Date.now() + 120000;          // zwei Minuten Zeit zum Nachtragen
+  $("autoTxt").innerHTML = esc((b.s || "Haus") + " " + (b.h || "")) +
+    '<small>automatisch gesetzt · Anzahl anpassen?</small>';
+  $("autoCnt").textContent = pin.n || 1;
+  $("autoBar").style.display = "flex";
+}
+function hideAutoBar(){
+  $("autoBar").style.display = "none";
+  lastAuto = null;
+}
+function bumpAuto(delta){
+  if(!lastAuto) return;
+  lastAuto.n = Math.max(1, (lastAuto.n || 1) + delta);
+  $("autoCnt").textContent = lastAuto.n;
+  lastAutoUntil = Date.now() + 120000;
+  renderPins(); updateCounters();
+  markDirtyAndPersist("pins");
+  vibrate(30);
+}
+function autoHouseCheck(){
+  if(!autoHouse || !activeTour || !me || !myPos) return;
+  if(myAcc != null && myAcc > 35) return;        // bei schlechtem GPS lieber nichts setzen
+  const hit = nearestBuilding(myPos.lat, myPos.lng, AUTO_HOUSE_M);
+  if(!hit) return;
+  const b = hit.b;
+  // Schon ein Pin an diesem Haus? Dann nichts tun.
+  for(const o of dataOwners())
+    for(const p of (data.pins[o]||[]))
+      if(distM({lat:b.lat,lng:b.lng}, p) < BLD_RADIUS_M) return;
+  const pin = { id:uid(), lat:b.lat, lng:b.lng, t:"f", n:1, auto:true, ts:Date.now(), tour:activeTour.id };
+  data.pins[me].push(pin);
+  session.push(pin.id);
+  renderPins(); updateCounters();
+  markDirtyAndPersist("pins");
+  vibrate(45);
+  showAutoBar(pin, b);
+}
+
+/* ---------- Vollsicherung ---------- */
+const BACKUP_VERSION = 1;
+let restoreData = null;
+function buildBackup(){
+  return {
+    app:"flyer-tracker", version:BACKUP_VERSION, created:new Date().toISOString(),
+    users:users, pins:data.pins, tours:data.tours, tracks:data.tracks,
+    handouts:handouts, orders:orders
+  };
+}
+function exportBackup(){
+  const b = buildBackup();
+  const cnt = Object.keys(b.pins).reduce((x,k)=>x+(b.pins[k]||[]).length, 0);
+  const name = "flyer-backup-"+dayKey(Date.now())+".json";
+  download(name, JSON.stringify(b), "application/json");
+  toast("Sicherung erstellt: "+cnt+" Pins ✓");
+}
+function pickBackupFile(){
+  const inp = document.createElement("input");
+  inp.type = "file"; inp.accept = "application/json,.json";
+  inp.onchange = ()=>{
+    const f = inp.files && inp.files[0];
+    if(!f) return;
+    const rd = new FileReader();
+    rd.onload = ()=>{
+      try{
+        const j = JSON.parse(rd.result);
+        if(!j || j.app !== "flyer-tracker" || !j.pins) throw new Error("Format");
+        restoreData = j;
+        showRestorePreview();
+      }catch(e){ toast("Datei nicht lesbar – ist es eine Flyer-Tracker-Sicherung?"); }
+    };
+    rd.readAsText(f);
+  };
+  inp.click();
+}
+function countPins(obj){ let n=0; for(const k in obj) n += (obj[k]||[]).length; return n; }
+function showRestorePreview(){
+  const j = restoreData;
+  const users2 = j.users || {};
+  const names = Object.keys(users2).map(k=>esc(users2[k].name||k)).join(", ") || "–";
+  $("rsBody").innerHTML =
+    '<p>Aus der Datei vom '+esc(new Date(j.created||Date.now()).toLocaleString("de-DE"))+':</p>'+
+    '<div class="kv"><span>Personen</span><b>'+names+'</b></div>'+
+    '<div class="kv"><span>Pins</span><b>'+countPins(j.pins)+'</b></div>'+
+    '<div class="kv"><span>Touren</span><b>'+Object.keys(j.tours||{}).reduce((x,k)=>x+(j.tours[k]||[]).length,0)+'</b></div>'+
+    '<div class="kv"><span>Abgegeben / Bestellungen</span><b>'+Object.keys(j.handouts||{}).length+' / '+Object.keys(j.orders||{}).length+'</b></div>'+
+    '<div class="field" style="margin-top:14px"><label for="rsMode">Vorgehen</label><select id="rsMode">'+
+      '<option value="merge">Zusammenführen (nichts geht verloren)</option>'+
+      '<option value="replace">Ersetzen (aktuelle Daten überschreiben)</option>'+
+    '</select></div>'+
+    '<div class="empty">Beim Zusammenführen werden fehlende Einträge ergänzt; gleiche Einträge bleiben unverändert.</div>';
+  $("restoreOverlay").classList.remove("hidden");
+}
+function mergeArrById(base, add){
+  const m = new Map();
+  for(const x of (base||[])) if(x && x.id) m.set(x.id, x);
+  for(const x of (add||[])) if(x && x.id && !m.has(x.id)) m.set(x.id, x);
+  return Array.from(m.values());
+}
+async function runRestore(){
+  const j = restoreData;
+  if(!j) return;
+  const mode = $("rsMode") ? $("rsMode").value : "merge";
+  $("rsRun").disabled = true;
+  setSync("busy","Spiele Sicherung ein …");
+  try{
+    if(mode === "replace"){
+      users = j.users || {};
+      data.pins = j.pins || {}; data.tours = j.tours || {}; data.tracks = j.tracks || {};
+      handouts = j.handouts || {}; orders = j.orders || {};
+    }else{
+      for(const k in (j.users||{})) if(!users[k]) users[k] = j.users[k];
+      for(const k in (j.pins||{}))  data.pins[k]  = mergeArrById(data.pins[k],  j.pins[k]);
+      for(const k in (j.tours||{})) data.tours[k] = mergeArrById(data.tours[k], j.tours[k]);
+      for(const k in (j.tracks||{})){
+        data.tracks[k] = data.tracks[k] || {};
+        for(const t in j.tracks[k]) if(!data.tracks[k][t]) data.tracks[k][t] = j.tracks[k][t];
+      }
+      for(const k in (j.handouts||{})) if(!handouts[k]) handouts[k] = j.handouts[k];
+      for(const k in (j.orders||{}))   if(!orders[k])   orders[k]   = j.orders[k];
+    }
+    // Alles in die Datenbank schreiben
+    await dbSet("users", users);
+    for(const k in data.pins){
+      const patch = {};
+      for(const p of (data.pins[k]||[])) if(p && p.id) patch[p.id] = p;
+      if(Object.keys(patch).length) await dbPatch("pins/"+k, patch);
+    }
+    for(const k in data.tours)  await dbSet("tours-"+k, data.tours[k]||[]);
+    for(const k in data.tracks) await dbSet("tracks-"+k, data.tracks[k]||{});
+    await dbSet("handouts", handouts);
+    await dbSet("orders", orders);
+    pinSnapshot = me ? snapshotPins(data.pins[me]) : null;
+    $("restoreOverlay").classList.add("hidden");
+    usersChanged(); renderAll();
+    setSync("ok","Synchronisiert");
+    toast("Sicherung eingespielt ✓");
+  }catch(e){
+    setSync("off","Offline – sende später");
+    toast("Einspielen unvollständig – bitte Verbindung prüfen und erneut versuchen");
+  }
+  $("rsRun").disabled = false;
+}
+
 function copyInviteLink(userId){
   if(!dbUrl){ toast("Erst Datenbank einrichten"); return; }
   const link = location.origin + location.pathname + "?db=" + encodeURIComponent(dbUrl) +
@@ -2228,12 +2546,183 @@ async function stFetchStreets(){
   }
   btn.disabled = false;
 }
+/* ---------- Gebäude & Haushalte (Zusatzoption) ---------- */
+const BLD_RADIUS_M = 25;      // ab hier gilt ein Haus als erreicht
+const AUTO_HOUSE_M = 18;      // Auslöseabstand der Haus-Automatik
+let buildings = null;         // {ts, items:[{lat,lng,s:Straße,h:Hausnr,q:Haushalte,loc}]}
+let bldOn = false;            // Haushalts-Auswertung aktiv
+let autoHouse = false;        // Pins automatisch am Haus setzen
+let bldIndex = null, lastAuto = null, lastAutoUntil = 0;
+
+function bldSave(){
+  try{ localStorage.setItem("flyer-buildings", JSON.stringify(buildings)); }
+  catch(e){ toast("Zu viele Gebäude für den Gerätespeicher – kleineren Ausschnitt laden"); }
+}
+function bldLoadLS(){
+  try{
+    const raw = localStorage.getItem("flyer-buildings");
+    if(raw) buildings = JSON.parse(raw);
+  }catch(e){ buildings = null; }
+  bldOn = ls("flyer-bld") === "1";
+  if(ls("flyer-pl") === "0") placeLabels = false;
+  autoHouse = ls("flyer-autohouse") === "1";
+}
+function households(tags){    // grobe Schätzung je Adresse
+  const lv = parseInt((tags && tags["building:levels"]) || "", 10);
+  const b = (tags && tags.building) || "";
+  if(b === "apartments" || b === "residential"){
+    if(lv >= 3) return lv * 2;
+    return lv >= 2 ? 3 : 2;
+  }
+  if(lv >= 3) return lv * 2;
+  if(lv === 2) return 2;
+  return 1;
+}
+async function fetchBuildings(){
+  const b = map.getBounds();
+  const sw = b.getSouthWest(), ne = b.getNorthEast();
+  const wKm = distM({lat:sw.lat,lng:sw.lng}, {lat:sw.lat,lng:ne.lng})/1000;
+  const hKm = distM({lat:sw.lat,lng:sw.lng}, {lat:ne.lat,lng:sw.lng})/1000;
+  if(wKm*hKm > 60){ toast("Ausschnitt zu groß für Gebäude – näher heranzoomen"); return; }
+  const bbox = sw.lat.toFixed(5)+","+sw.lng.toFixed(5)+","+ne.lat.toFixed(5)+","+ne.lng.toFixed(5);
+  const q = '[out:json][timeout:90];(way["addr:housenumber"]('+bbox+');node["addr:housenumber"]('+bbox+'););out center tags;';
+  const btn = $("bldLoadBtn");
+  if(btn){ btn.disabled = true; btn.textContent = "Lädt Gebäude …"; }
+  try{
+    const r = await fetch(OVERPASS, {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"}, body:"data="+encodeURIComponent(q)});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const j = await r.json();
+    const places = placeNodes();
+    const fresh = [];
+    for(const el of (j.elements||[])){
+      const lat = el.lat != null ? el.lat : (el.center && el.center.lat);
+      const lng = el.lon != null ? el.lon : (el.center && el.center.lon);
+      if(lat == null || lng == null) continue;
+      const t = el.tags || {};
+      let loc = null, bd = Infinity;
+      for(const p of places){
+        const d = distM({lat:lat,lng:lng}, {lat:p.lat,lng:p.lng});
+        if(d < bd){ bd = d; loc = p.n; }
+      }
+      fresh.push({
+        lat:+lat.toFixed(6), lng:+lng.toFixed(6),
+        s:t["addr:street"] || "", h:t["addr:housenumber"] || "",
+        q:households(t), loc:(bd <= 15000 ? loc : null)
+      });
+    }
+    const merged = new Map();
+    if(buildings && buildings.items) for(const it of buildings.items) merged.set(it.lat+","+it.lng, it);
+    for(const it of fresh) merged.set(it.lat+","+it.lng, it);
+    buildings = { ts:Date.now(), items:Array.from(merged.values()) };
+    bldIndex = null;
+    bldSave();
+    renderStreetsPanel();
+    renderPlaceLabels();
+    toast(fresh.length+" Adressen geladen ✓ – beim Rauszoomen erscheinen die Ortschafts-Zahlen");
+  }catch(e){
+    toast("Gebäude konnten nicht geladen werden – später erneut versuchen");
+  }
+  if(btn){ btn.disabled = false; btn.textContent = "Gebäude laden"; }
+}
+function bldBuildIndex(){
+  if(bldIndex || !buildings || !buildings.items || !buildings.items.length) return bldIndex;
+  const mLng = mPerLng(buildings.items[0].lat);
+  const grid = new Map();
+  for(const it of buildings.items){
+    const key = Math.floor(it.lng*mLng/AUTO_HOUSE_M)+":"+Math.floor(it.lat*M_PER_LAT/AUTO_HOUSE_M);
+    let a = grid.get(key);
+    if(!a){ a = []; grid.set(key, a); }
+    a.push(it);
+  }
+  bldIndex = { grid:grid, mLng:mLng, cell:AUTO_HOUSE_M };
+  return bldIndex;
+}
+function nearestBuilding(lat, lng, maxM){
+  const idx = bldBuildIndex();
+  if(!idx) return null;
+  const reach = Math.ceil(maxM/idx.cell);
+  const gx = Math.floor(lng*idx.mLng/idx.cell), gy = Math.floor(lat*M_PER_LAT/idx.cell);
+  let best = null, bd = Infinity;
+  for(let dx=-reach; dx<=reach; dx++) for(let dy=-reach; dy<=reach; dy++){
+    const a = idx.grid.get((gx+dx)+":"+(gy+dy));
+    if(!a) continue;
+    for(const it of a){
+      const d = distM({lat:lat,lng:lng}, {lat:it.lat,lng:it.lng});
+      if(d < bd){ bd = d; best = it; }
+    }
+  }
+  return (best && bd <= maxM) ? { b:best, d:bd } : null;
+}
+function houseStats(){        // je Ortschaft: Haushalte gesamt / erreicht
+  const out = {};
+  if(!bldOn || !buildings || !buildings.items) return out;
+  const idx = stBuildIndex();
+  for(const it of buildings.items){
+    const key = it.loc || "Ohne Ortszuordnung";
+    if(!out[key]) out[key] = { adr:0, hh:0, adrDone:0, hhDone:0 };
+    out[key].adr++; out[key].hh += (it.q||1);
+    if(idx && stNear(idx, it.lat, it.lng)){ out[key].adrDone++; out[key].hhDone += (it.q||1); }
+  }
+  return out;
+}
+
+function renderPlaceLabels(){
+  if(!placeLayer) return;
+  placeLayer.clearLayers();
+  const z = map.getZoom();
+  if(!placeLabels || z < 9 || z > 16) return;      // beim Hineinzoomen ausblenden
+  const places = placeNodes();
+  if(!places.length) return;
+  const hs = (bldOn && buildings && buildings.items && buildings.items.length) ? houseStats() : {};
+  let cov = null;
+  if(streets && streets.ways && streets.ways.length){
+    if(stDirty || !stCov) stCompute();
+    cov = stCov ? stCov.locs : null;
+  }
+  for(const p of places){
+    const h = hs[p.n];
+    const c = cov ? cov[p.n] : null;
+    let main = null, sub = null, done = false;
+    if(h && h.adr > 0){
+      main = nfmt(h.adrDone)+"/"+nfmt(h.adr);
+      const rest = h.adr - h.adrDone;
+      sub = rest > 0 ? "noch "+nfmt(rest)+" Häuser" : "fertig ✓";
+      done = rest === 0;
+    }else if(c && c.n > 0){
+      const pct = Math.round(c.hit/c.n*100);
+      main = pct + " %";
+      sub = pct >= 80 ? "fertig ✓" : "der Straßen";
+      done = pct >= 80;
+    }
+    if(!main) continue;                            // ohne Daten kein Etikett
+    L.marker([p.lat, p.lng], {
+      pane:"placePane", interactive:false, keyboard:false,
+      icon: L.divIcon({
+        className:"place-label", iconSize:[0,0], iconAnchor:[0,0],
+        html:'<div class="pl'+(done?" done":"")+'">'+esc(p.n)+' '+main+'<small>'+sub+'</small></div>'
+      })
+    }).addTo(placeLayer);
+  }
+}
+function renderStreetsPanel(){
+  $("bldBox").style.display = bldOn ? "block" : "none";
+  $("bldOnCb").checked = bldOn;
+  $("autoHouseCb").checked = autoHouse;
+  const n = (buildings && buildings.items) ? buildings.items.length : 0;
+  let hh = 0;
+  if(n) for(const it of buildings.items) hh += (it.q||1);
+  $("bldInfo").innerHTML = n
+    ? n+" Adressen geladen · geschätzt "+nfmt(hh)+" Haushalte · Stand "+fmtTime(buildings.ts)
+    : "Noch keine Gebäude geladen. Karte auf euer Gebiet zoomen und laden – nur nötig, wenn ihr Haushalte schätzen oder die Haus-Automatik nutzen wollt.";
+  renderStLocList();
+}
 function openStreets(){
+  $("plLabelsCb").checked = placeLabels;
   $("stFilterSel").value = stFilter;
   $("stMinSel").value = String(stMin);
   $("stTracksCb").checked = stUseTracks;
   $("stSkipCb").checked = stUseSkip;
-  renderStLocList();
+  renderStreetsPanel();
   $("streetsOverlay").classList.remove("hidden");
 }
 
@@ -2260,6 +2749,8 @@ $("tourCancel").onclick = ()=>$("tourOverlay").classList.add("hidden");
 $("tourSave").onclick = saveTour;
 $("detailClose").onclick = ()=>$("detailOverlay").classList.add("hidden");
 $("rbCancel").onclick = ()=>$("rebuildOverlay").classList.add("hidden");
+$("rsCancel").onclick = ()=>$("restoreOverlay").classList.add("hidden");
+$("rsRun").onclick = runRestore;
 $("rbSave").onclick = runRebuild;
 $("btnRefresh").onclick = ()=>refreshOthers(true);
 $("btnFollow").onclick = ()=>setFollow(!follow);
@@ -2280,6 +2771,27 @@ $("stClearBtn").onclick = ()=>{
   renderStLocList(); renderStreets();
   toast("Straßendaten gelöscht");
 };
+$("plLabelsCb").onchange = ()=>{
+  placeLabels = $("plLabelsCb").checked;
+  ls("flyer-pl", placeLabels ? "1" : "0");
+  renderPlaceLabels();
+  toast(placeLabels ? "Ortschafts-Etiketten an (beim Rauszoomen sichtbar)" : "Etiketten aus");
+};
+$("bldOnCb").onchange = ()=>{
+  bldOn = $("bldOnCb").checked;
+  ls("flyer-bld", bldOn ? "1" : "0");
+  if(!bldOn && autoHouse){ autoHouse = false; ls("flyer-autohouse","0"); hideAutoBar(); }
+  renderStreetsPanel(); renderStatsIfVisible();
+};
+$("autoHouseCb").onchange = ()=>{
+  autoHouse = $("autoHouseCb").checked;
+  ls("flyer-autohouse", autoHouse ? "1" : "0");
+  if(autoHouse && (!buildings || !buildings.items || !buildings.items.length)){
+    toast("Bitte zuerst die Gebäude laden");
+    autoHouse = false; ls("flyer-autohouse","0"); $("autoHouseCb").checked = false;
+  }else toast(autoHouse ? "Haus-Automatik an (nur während einer Tour)" : "Haus-Automatik aus");
+};
+$("bldLoadBtn").onclick = fetchBuildings;
 $("stFilterSel").onchange = ()=>{ stFilter = $("stFilterSel").value; stSaveOpt(); renderStreets(); };
 $("stMinSel").onchange = ()=>{ stMin = parseFloat($("stMinSel").value); stSaveOpt(); renderStLocList(); renderStreets(); };
 $("stTracksCb").onchange = ()=>{ stUseTracks = $("stTracksCb").checked; stDirty = true; stSaveOpt(); renderStLocList(); renderStreets(); };
@@ -2300,6 +2812,9 @@ $("whoClose").onclick = ()=>{ if(me) $("whoOverlay").classList.add("hidden"); };
 $("tabMap").onclick = ()=>showTab("map");
 $("tabGive").onclick = ()=>showTab("give");
 $("tabStats").onclick = ()=>showTab("stats");
+$("autoPlus").onclick  = ()=>bumpAuto(1);
+$("autoMinus").onclick = ()=>bumpAuto(-1);
+$("autoOk").onclick    = hideAutoBar;
 $("qPlus").onclick  = ()=>{ $("qVal").value = getQty() + 1; };
 $("qMinus").onclick = ()=>{ $("qVal").value = Math.max(1, getQty() - 1); };
 $("qVal").onchange  = ()=>{ $("qVal").value = getQty(); };
@@ -2327,6 +2842,7 @@ async function startApp(){
     toast("Willkommen, "+uname(wantUser)+"!");
   }
   else { renderWho(); $("whoOverlay").classList.remove("hidden"); }
+  await migratePinStore();
   migrate();
   autoEndCheck();      // Tour, die über Nacht offen blieb, sauber abschließen
   updateCounters();
@@ -2352,6 +2868,8 @@ $("setupSave").onclick = async ()=>{
 };
 (function boot(){
   loadFunOpt();
+  bldLoadLS();
+  loadStepOpt();
   if(ls("flyer-auto") === "0") autoTours = false;
   const gp = parseInt(ls("flyer-gap") || "", 10);
   if(gp >= 15 && gp <= 480) autoGapMin = gp;
