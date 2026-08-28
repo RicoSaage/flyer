@@ -343,13 +343,15 @@
       <label style="display:flex;gap:9px;align-items:center;font-size:13.5px;margin-bottom:8px"><input type="checkbox" id="bldOnCb" style="width:18px;height:18px"> Haushalte schätzen (Zusatzoption)</label>
       <div id="bldBox" style="display:none">
         <div id="bldInfo" style="font-size:12.5px;color:var(--muted);margin-bottom:8px"></div>
-        <button class="smallbtn" id="bldLoadBtn" style="width:100%;margin-bottom:10px">Gebäude laden</button>
+        <button class="smallbtn" id="bldAllBtn" style="width:100%;margin-bottom:6px">🌍 Gebäude für alle Gebiete laden</button>
+        <button class="smallbtn" id="bldLoadBtn" style="width:100%;margin-bottom:10px">Nur Ausschnitt laden</button>
         <label style="display:flex;gap:9px;align-items:center;font-size:13.5px"><input type="checkbox" id="autoHouseCb" style="width:18px;height:18px"> Haus-Automatik: Pin setzen, wenn ich an einem Haus vorbeikomme</label>
         <div class="empty" style="padding:6px 0 0">Wirkt nur während einer laufenden Tour. Nach jedem Auto-Pin erscheint unten eine Leiste, in der du die Flyer-Anzahl noch erhöhen kannst.</div>
       </div>
     </div>
+    <button class="smallbtn" id="stAllBtn" style="width:100%;margin-top:10px">🌍 Straßen für alle Gebiete laden</button>
     <div class="modal-btns">
-      <button class="btn-secondary" id="stLoadBtn">Straßen laden</button>
+      <button class="btn-secondary" id="stLoadBtn">Nur Ausschnitt laden</button>
       <button class="btn-primary" id="stCloseBtn">Schließen</button>
     </div>
     <button class="linkbtn" id="stClearBtn" style="margin:12px auto 0">Geladene Straßen löschen</button>
@@ -1905,7 +1907,10 @@ function placesHTML(){
           '<b style="color:'+col+';min-width:34px;display:inline-block;text-align:right">'+pct+' %</b></div>';
     const who = Object.keys(r.by).map(o=>'<span style="color:'+ucolor(o)+';font-weight:700">'+esc(uname(o))+' '+r.by[o]+'</span>').join(" · ");
     const h = hs[r.name];
-    const hhTxt = h ? ' · 🏠 '+nfmt(h.hhDone)+'/'+nfmt(h.hh)+' Haushalte ('+Math.round(h.hh?h.hhDone/h.hh*100:0)+' %)' : '';
+    const hhTxt = h
+      ? ' · 🏠 '+nfmt(h.adrDone)+'/'+nfmt(h.adr)+' Häuser'+(h.adr>h.adrDone ? ' · noch '+nfmt(h.adr-h.adrDone)+' offen' : ' · fertig ✓')+
+        ' · '+nfmt(h.hhDone)+'/'+nfmt(h.hh)+' Haushalte'
+      : '';
     return '<tr><td><div style="font-weight:700">'+esc(r.name)+'</div>'+
       '<div style="font-size:11px;color:var(--muted)">'+(who || "–")+
       (r.m ? ' · '+nfmt(r.mDone/1000,1)+'/'+nfmt(r.m/1000,1)+' km' : '')+
@@ -2499,6 +2504,31 @@ function stNearestPlace(pts, places){
   }
   return bestD <= 6000 ? best.n : null;
 }
+async function stFetchBbox(bbox){
+  const q = '[out:json][timeout:90];(way["highway"~"^('+HW+')$"]["name"]('+bbox+'););out geom;node["place"~"^('+PL+')$"]('+bbox+');out;';
+  const r = await fetch(OVERPASS, {
+    method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"},
+    body:"data="+encodeURIComponent(q)
+  });
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  const j = await r.json();
+  const places = [], fresh = [];
+  for(const el of (j.elements||[])){
+    if(el.type === "node" && el.tags && el.tags.place && el.tags.name)
+      places.push({ n:el.tags.name, lat:el.lat, lng:el.lon });
+    else if(el.type === "way" && el.geometry && el.geometry.length > 1)
+      fresh.push({ n:(el.tags && el.tags.name) || "Straße", pts: el.geometry.map(g=>[+g.lat.toFixed(5), +g.lon.toFixed(5)]) });
+  }
+  for(const w of fresh) w.loc = stNearestPlace(w.pts, places);
+  const merged = new Map();
+  if(streets && streets.ways) for(const w of streets.ways) merged.set(w.n+"|"+w.pts[0][0]+","+w.pts[0][1], w);
+  for(const w of fresh) merged.set(w.n+"|"+w.pts[0][0]+","+w.pts[0][1], w);
+  const mp = new Map();
+  if(streets && streets.places) for(const p of streets.places) mp.set(p.n, p);
+  for(const p of places) mp.set(p.n, p);
+  streets = { ts:Date.now(), ways:Array.from(merged.values()), places:Array.from(mp.values()) };
+  return fresh.length;
+}
 async function stFetchStreets(){
   const b = map.getBounds();
   const sw = b.getSouthWest(), ne = b.getNorthEast();
@@ -2506,46 +2536,25 @@ async function stFetchStreets(){
   const hKm = distM({lat:sw.lat,lng:sw.lng}, {lat:ne.lat,lng:sw.lng})/1000;
   if(wKm*hKm > 150){ toast("Ausschnitt zu groß – bitte näher heranzoomen"); return; }
   const bbox = sw.lat.toFixed(5)+","+sw.lng.toFixed(5)+","+ne.lat.toFixed(5)+","+ne.lng.toFixed(5);
-  const q = '[out:json][timeout:90];(way["highway"~"^('+HW+')$"]["name"]('+bbox+'););out geom;node["place"~"^('+PL+')$"]('+bbox+');out;';
   const btn = $("stLoadBtn");
   btn.disabled = true;
   $("stInfo").textContent = "Lade Straßen von OpenStreetMap … (kann etwas dauern)";
   try{
-    const r = await fetch(OVERPASS, {
-      method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"},
-      body:"data="+encodeURIComponent(q)
-    });
-    if(!r.ok) throw new Error("HTTP "+r.status);
-    const j = await r.json();
-    const places = [], fresh = [];
-    for(const el of (j.elements||[])){
-      if(el.type === "node" && el.tags && el.tags.place && el.tags.name)
-        places.push({ n:el.tags.name, lat:el.lat, lng:el.lon });
-      else if(el.type === "way" && el.geometry && el.geometry.length > 1)
-        fresh.push({ n:(el.tags && el.tags.name) || "Straße", pts: el.geometry.map(g=>[+g.lat.toFixed(5), +g.lon.toFixed(5)]) });
-    }
-    for(const w of fresh) w.loc = stNearestPlace(w.pts, places);
-    // Mit bereits geladenen Straßen zusammenführen (mehrere Gebiete möglich)
-    const merged = new Map();
-    if(streets && streets.ways) for(const w of streets.ways) merged.set(w.n+"|"+w.pts[0][0]+","+w.pts[0][1], w);
-    for(const w of fresh) merged.set(w.n+"|"+w.pts[0][0]+","+w.pts[0][1], w);
-    const mp = new Map();
-    if(streets && streets.places) for(const p of streets.places) mp.set(p.n, p);
-    for(const p of places) mp.set(p.n, p);
-    streets = { ts:Date.now(), ways:Array.from(merged.values()), places:Array.from(mp.values()) };
+    const n = await stFetchBbox(bbox);
     stDirty = true;
     stSave();
-    if(stFilter === "off"){ stFilter = "open"; stSaveOpt(); }   // sonst sieht man nichts
-    if(pinMode === 0){ pinMode = 1; updatePinBtn(); }           // Pins blass, Straßen im Vordergrund
+    if(stFilter === "off"){ stFilter = "open"; stSaveOpt(); }
+    if(pinMode === 0){ pinMode = 1; updatePinBtn(); }
     $("stFilterSel").value = stFilter;
-    renderStLocList();
+    renderStreetsPanel();
     renderPins();
-    toast(fresh.length+" Straßen geladen ✓ – offene Straßen sind rot");
+    toast(n+" Straßen geladen ✓ – offene Straßen sind rot");
   }catch(err){
     $("stInfo").textContent = "Laden fehlgeschlagen – der OpenStreetMap-Server ist manchmal überlastet. Bitte später erneut versuchen.";
   }
   btn.disabled = false;
 }
+
 /* ---------- Gebäude & Haushalte (Zusatzoption) ---------- */
 const BLD_RADIUS_M = 25;      // ab hier gilt ein Haus als erreicht
 const AUTO_HOUSE_M = 18;      // Auslöseabstand der Haus-Automatik
@@ -2578,51 +2587,127 @@ function households(tags){    // grobe Schätzung je Adresse
   if(lv === 2) return 2;
   return 1;
 }
-async function fetchBuildings(){
+function bboxOf(pins, padDeg){
+  let s0=90, n0=-90, w0=180, e0=-180;
+  for(const p of pins){
+    s0=Math.min(s0,p.lat); n0=Math.max(n0,p.lat);
+    w0=Math.min(w0,p.lng); e0=Math.max(e0,p.lng);
+  }
+  const pad = padDeg == null ? 0.004 : padDeg;
+  return (s0-pad).toFixed(5)+","+(w0-pad).toFixed(5)+","+(n0+pad).toFixed(5)+","+(e0+pad).toFixed(5);
+}
+function pinAreas(){                 // Gebiete rund um eure Pins, gruppiert nach Ortschaft
+  const all = [];
+  for(const o of dataOwners()) for(const p of (data.pins[o]||[])) all.push(p);
+  if(!all.length) return [];
+  const places = placeNodes();
+  const groups = new Map();
+  for(const p of all){
+    let key = "-", bd = Infinity;
+    for(const q of places){
+      const d = distM(p, {lat:q.lat, lng:q.lng});
+      if(d < bd){ bd = d; key = q.n; }
+    }
+    if(bd > 15000) key = "-";
+    if(key === "-"){          // ohne Ortsbezug: 2-km-Raster
+      const mLng = mPerLng(p.lat);
+      key = "g"+Math.floor(p.lng*mLng/2000)+":"+Math.floor(p.lat*M_PER_LAT/2000);
+    }
+    let g = groups.get(key);
+    if(!g){ g = []; groups.set(key, g); }
+    g.push(p);
+  }
+  const areas = [];
+  groups.forEach((pins, name)=>{ if(pins.length >= 2) areas.push({ name:name, bbox:bboxOf(pins) }); });
+  return areas;
+}
+function bldMerge(elements){
+  const places = placeNodes();
+  const fresh = [];
+  for(const el of (elements||[])){
+    const lat = el.lat != null ? el.lat : (el.center && el.center.lat);
+    const lng = el.lon != null ? el.lon : (el.center && el.center.lon);
+    if(lat == null || lng == null) continue;
+    const t = el.tags || {};
+    let loc = null, bd = Infinity;
+    for(const p of places){
+      const d = distM({lat:lat,lng:lng}, {lat:p.lat, lng:p.lng});
+      if(d < bd){ bd = d; loc = p.n; }
+    }
+    fresh.push({
+      lat:+lat.toFixed(6), lng:+lng.toFixed(6),
+      s:t["addr:street"] || "", h:t["addr:housenumber"] || "",
+      q:households(t), loc:(bd <= 15000 ? loc : null)
+    });
+  }
+  const merged = new Map();
+  if(buildings && buildings.items) for(const it of buildings.items) merged.set(it.lat+","+it.lng, it);
+  for(const it of fresh) merged.set(it.lat+","+it.lng, it);
+  buildings = { ts:Date.now(), items:Array.from(merged.values()) };
+  bldIndex = null;
+  return fresh.length;
+}
+async function bldFetchBbox(bbox){
+  const q = '[out:json][timeout:90];(way["addr:housenumber"]('+bbox+');node["addr:housenumber"]('+bbox+'););out center tags;';
+  const r = await fetch(OVERPASS, {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"}, body:"data="+encodeURIComponent(q)});
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  const j = await r.json();
+  return bldMerge(j.elements);
+}
+async function fetchBuildings(){          // aktueller Kartenausschnitt
   const b = map.getBounds();
   const sw = b.getSouthWest(), ne = b.getNorthEast();
   const wKm = distM({lat:sw.lat,lng:sw.lng}, {lat:sw.lat,lng:ne.lng})/1000;
   const hKm = distM({lat:sw.lat,lng:sw.lng}, {lat:ne.lat,lng:sw.lng})/1000;
   if(wKm*hKm > 60){ toast("Ausschnitt zu groß für Gebäude – näher heranzoomen"); return; }
   const bbox = sw.lat.toFixed(5)+","+sw.lng.toFixed(5)+","+ne.lat.toFixed(5)+","+ne.lng.toFixed(5);
-  const q = '[out:json][timeout:90];(way["addr:housenumber"]('+bbox+');node["addr:housenumber"]('+bbox+'););out center tags;';
   const btn = $("bldLoadBtn");
   if(btn){ btn.disabled = true; btn.textContent = "Lädt Gebäude …"; }
   try{
-    const r = await fetch(OVERPASS, {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"}, body:"data="+encodeURIComponent(q)});
-    if(!r.ok) throw new Error("HTTP "+r.status);
-    const j = await r.json();
-    const places = placeNodes();
-    const fresh = [];
-    for(const el of (j.elements||[])){
-      const lat = el.lat != null ? el.lat : (el.center && el.center.lat);
-      const lng = el.lon != null ? el.lon : (el.center && el.center.lon);
-      if(lat == null || lng == null) continue;
-      const t = el.tags || {};
-      let loc = null, bd = Infinity;
-      for(const p of places){
-        const d = distM({lat:lat,lng:lng}, {lat:p.lat,lng:p.lng});
-        if(d < bd){ bd = d; loc = p.n; }
-      }
-      fresh.push({
-        lat:+lat.toFixed(6), lng:+lng.toFixed(6),
-        s:t["addr:street"] || "", h:t["addr:housenumber"] || "",
-        q:households(t), loc:(bd <= 15000 ? loc : null)
-      });
-    }
-    const merged = new Map();
-    if(buildings && buildings.items) for(const it of buildings.items) merged.set(it.lat+","+it.lng, it);
-    for(const it of fresh) merged.set(it.lat+","+it.lng, it);
-    buildings = { ts:Date.now(), items:Array.from(merged.values()) };
-    bldIndex = null;
-    bldSave();
-    renderStreetsPanel();
-    renderPlaceLabels();
-    toast(fresh.length+" Adressen geladen ✓ – beim Rauszoomen erscheinen die Ortschafts-Zahlen");
-  }catch(e){
-    toast("Gebäude konnten nicht geladen werden – später erneut versuchen");
-  }
+    const n = await bldFetchBbox(bbox);
+    bldSave(); renderStreetsPanel(); renderPlaceLabels();
+    toast(n+" Adressen geladen ✓");
+  }catch(e){ toast("Gebäude konnten nicht geladen werden – später erneut versuchen"); }
   if(btn){ btn.disabled = false; btn.textContent = "Gebäude laden"; }
+}
+async function fetchBuildingsAll(){       // alle Gebiete, in denen ihr Pins habt
+  const areas = pinAreas();
+  if(!areas.length){ toast("Noch keine Pins vorhanden"); return; }
+  if(!placeNodes().length) await fetchPlacesOnly();
+  const btn = $("bldAllBtn");
+  if(btn) btn.disabled = true;
+  let total = 0, fail = 0;
+  for(let i=0;i<areas.length;i++){
+    if(btn) btn.textContent = "Lädt "+(i+1)+"/"+areas.length+" …";
+    $("bldInfo").textContent = "Lade Gebiet "+(i+1)+" von "+areas.length+" ("+areas[i].name+") …";
+    try{ total += await bldFetchBbox(areas[i].bbox); }
+    catch(e){ fail++; }
+    if(i < areas.length-1) await new Promise(r=>setTimeout(r, 1200));   // Server schonen
+  }
+  bldSave();
+  renderStreetsPanel(); renderPlaceLabels(); renderStatsIfVisible();
+  if(btn){ btn.disabled = false; btn.textContent = "Gebäude für alle Gebiete laden"; }
+  toast(total+" Adressen aus "+(areas.length-fail)+" Gebieten geladen ✓"+(fail?" ("+fail+" fehlgeschlagen)":""));
+}
+async function fetchStreetsAll(){         // Straßen für alle Gebiete mit Pins
+  const areas = pinAreas();
+  if(!areas.length){ toast("Noch keine Pins vorhanden"); return; }
+  const btn = $("stAllBtn");
+  if(btn) btn.disabled = true;
+  let fail = 0, cnt = 0;
+  for(let i=0;i<areas.length;i++){
+    if(btn) btn.textContent = "Lädt "+(i+1)+"/"+areas.length+" …";
+    $("stInfo").textContent = "Lade Straßen, Gebiet "+(i+1)+" von "+areas.length+" …";
+    try{ cnt += await stFetchBbox(areas[i].bbox); }
+    catch(e){ fail++; }
+    if(i < areas.length-1) await new Promise(r=>setTimeout(r, 1200));
+  }
+  stDirty = true;
+  stSave();
+  if(stFilter === "off"){ stFilter = "open"; stSaveOpt(); $("stFilterSel").value = stFilter; }
+  renderStreetsPanel(); renderPins();
+  if(btn){ btn.disabled = false; btn.textContent = "Straßen für alle Gebiete laden"; }
+  toast(cnt+" Straßen aus "+(areas.length-fail)+" Gebieten geladen ✓");
 }
 function bldBuildIndex(){
   if(bldIndex || !buildings || !buildings.items || !buildings.items.length) return bldIndex;
@@ -2653,9 +2738,26 @@ function nearestBuilding(lat, lng, maxM){
   }
   return (best && bd <= maxM) ? { b:best, d:bd } : null;
 }
+function reassignBuildings(){   // Gebäude ohne Ortsbezug nachträglich zuordnen
+  if(!buildings || !buildings.items) return;
+  const places = placeNodes();
+  if(!places.length) return;
+  let changed = 0;
+  for(const it of buildings.items){
+    if(it.loc) continue;
+    let best = null, bd = Infinity;
+    for(const p of places){
+      const d = distM({lat:it.lat,lng:it.lng}, {lat:p.lat,lng:p.lng});
+      if(d < bd){ bd = d; best = p.n; }
+    }
+    if(best && bd <= 15000){ it.loc = best; changed++; }
+  }
+  if(changed) bldSave();
+}
 function houseStats(){        // je Ortschaft: Haushalte gesamt / erreicht
   const out = {};
   if(!bldOn || !buildings || !buildings.items) return out;
+  reassignBuildings();
   const idx = stBuildIndex();
   for(const it of buildings.items){
     const key = it.loc || "Ohne Ortszuordnung";
@@ -2666,6 +2768,23 @@ function houseStats(){        // je Ortschaft: Haushalte gesamt / erreicht
   return out;
 }
 
+function pinsPerPlace(){
+  const out = {};
+  const places = placeNodes();
+  if(!places.length) return out;
+  for(const o of dataOwners()) for(const p of (data.pins[o]||[])){
+    if(p.t !== "f") continue;
+    let name = null, bd = Infinity;
+    for(const q of places){
+      const d = distM(p, {lat:q.lat, lng:q.lng});
+      if(d < bd){ bd = d; name = q.n; }
+    }
+    if(!name || bd > 15000) continue;
+    if(!out[name]) out[name] = { pins:0, fly:0 };
+    out[name].pins++; out[name].fly += (p.n||1);
+  }
+  return out;
+}
 function renderPlaceLabels(){
   if(!placeLayer) return;
   placeLayer.clearLayers();
@@ -2674,6 +2793,7 @@ function renderPlaceLabels(){
   const places = placeNodes();
   if(!places.length) return;
   const hs = (bldOn && buildings && buildings.items && buildings.items.length) ? houseStats() : {};
+  const pinCounts = pinsPerPlace();
   let cov = null;
   if(streets && streets.ways && streets.ways.length){
     if(stDirty || !stCov) stCompute();
@@ -2693,8 +2813,11 @@ function renderPlaceLabels(){
       main = pct + " %";
       sub = pct >= 80 ? "fertig ✓" : "der Straßen";
       done = pct >= 80;
+    }else{
+      const pc = pinCounts[p.n];
+      if(pc && pc.pins > 0){ main = nfmt(pc.fly)+" Flyer"; sub = pc.pins+" Pins · Gebäude fehlen"; }
     }
-    if(!main) continue;                            // ohne Daten kein Etikett
+    if(!main) continue;                            // ohne jede Datenlage kein Etikett
     L.marker([p.lat, p.lng], {
       pane:"placePane", interactive:false, keyboard:false,
       icon: L.divIcon({
@@ -2792,6 +2915,8 @@ $("autoHouseCb").onchange = ()=>{
   }else toast(autoHouse ? "Haus-Automatik an (nur während einer Tour)" : "Haus-Automatik aus");
 };
 $("bldLoadBtn").onclick = fetchBuildings;
+$("bldAllBtn").onclick = fetchBuildingsAll;
+$("stAllBtn").onclick = fetchStreetsAll;
 $("stFilterSel").onchange = ()=>{ stFilter = $("stFilterSel").value; stSaveOpt(); renderStreets(); };
 $("stMinSel").onchange = ()=>{ stMin = parseFloat($("stMinSel").value); stSaveOpt(); renderStLocList(); renderStreets(); };
 $("stTracksCb").onchange = ()=>{ stUseTracks = $("stTracksCb").checked; stDirty = true; stSaveOpt(); renderStLocList(); renderStreets(); };
